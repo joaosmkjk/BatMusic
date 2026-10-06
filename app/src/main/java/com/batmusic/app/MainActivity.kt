@@ -22,11 +22,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -83,11 +81,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkPermission() {
-        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Manifest.permission.READ_MEDIA_AUDIO
-        } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        }
+        val permission =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Manifest.permission.READ_MEDIA_AUDIO
+            } else {
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            }
 
         if (checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) {
             hasPermission = true
@@ -98,11 +97,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestMusicPermission() {
-        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Manifest.permission.READ_MEDIA_AUDIO
-        } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        }
+        val permission =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Manifest.permission.READ_MEDIA_AUDIO
+            } else {
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            }
 
         permissionLauncher.launch(permission)
     }
@@ -134,23 +134,31 @@ class MainActivity : ComponentActivity() {
         )?.use { cursor ->
 
             val idColumn =
-                cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                cursor.getColumnIndexOrThrow(
+                    MediaStore.Audio.Media._ID
+                )
 
             val titleColumn =
-                cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+                cursor.getColumnIndexOrThrow(
+                    MediaStore.Audio.Media.TITLE
+                )
 
             val artistColumn =
-                cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+                cursor.getColumnIndexOrThrow(
+                    MediaStore.Audio.Media.ARTIST
+                )
 
             while (cursor.moveToNext()) {
 
                 val id = cursor.getLong(idColumn)
 
-                val title = cursor.getString(titleColumn)
-                    ?: "Música sem título"
+                val title =
+                    cursor.getString(titleColumn)
+                        ?: "Música sem título"
 
-                val artist = cursor.getString(artistColumn)
-                    ?: "Artista desconhecido"
+                val artist =
+                    cursor.getString(artistColumn)
+                        ?: "Artista desconhecido"
 
                 val contentUri =
                     android.content.ContentUris.withAppendedId(
@@ -205,7 +213,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@androidx.compose.runtime.Composable
+@Composable
 fun BatMusicApp(
     songs: List<Song>,
     currentSong: Song?,
@@ -338,10 +346,10 @@ fun BatMusicApp(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
 
-                            Icon(
-                                imageVector = Icons.Default.MusicNote,
-                                contentDescription = null,
-                                tint = Color.White,
+                            Text(
+                                text = "♪",
+                                color = Color.White,
+                                fontSize = 28.sp,
                                 modifier = Modifier.size(32.dp)
                             )
 
@@ -369,7 +377,7 @@ fun BatMusicApp(
     }
 }
 
-@androidx.compose.runtime.Composable
+@Composable
 fun SongItem(
     song: Song,
     isPlaying: Boolean,
@@ -392,13 +400,13 @@ fun SongItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
 
-        Icon(
-            imageVector = Icons.Default.MusicNote,
-            contentDescription = null,
-            tint = if (isPlaying)
+        Text(
+            text = if (isPlaying) "▶" else "♪",
+            color = if (isPlaying)
                 Color(0xFF64B5F6)
             else
                 Color(0xFF9AA0AA),
+            fontSize = 22.sp,
             modifier = Modifier.size(30.dp)
         )
 
