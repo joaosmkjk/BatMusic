@@ -23,8 +23,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -33,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 
 data class Song(
     val id: Long,
@@ -46,8 +49,14 @@ class MainActivity : ComponentActivity() {
     private var mediaPlayer: MediaPlayer? = null
 
     private var songs by mutableStateOf<List<Song>>(emptyList())
+    private var currentSongIndex by mutableStateOf(-1)
     private var currentSong by mutableStateOf<Song?>(null)
+
     private var hasPermission by mutableStateOf(false)
+    private var isPlaying by mutableStateOf(false)
+
+    private var currentPosition by mutableStateOf(0)
+    private var duration by mutableStateOf(0)
 
     private val permissionLauncher =
         registerForActivityResult(
@@ -67,12 +76,34 @@ class MainActivity : ComponentActivity() {
             BatMusicApp(
                 songs = songs,
                 currentSong = currentSong,
+                currentSongIndex = currentSongIndex,
                 hasPermission = hasPermission,
+                isPlaying = isPlaying,
+                currentPosition = currentPosition,
+                duration = duration,
+
                 onRequestPermission = {
                     requestMusicPermission()
                 },
-                onSongClick = { song ->
-                    playSong(song)
+
+                onSongClick = { index ->
+                    playSong(index)
+                },
+
+                onPlayPause = {
+                    togglePlayPause()
+                },
+
+                onNext = {
+                    playNext()
+                },
+
+                onPrevious = {
+                    playPrevious()
+                },
+
+                onSeek = { position ->
+                    seekTo(position)
                 }
             )
         }
@@ -81,6 +112,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkPermission() {
+
         val permission =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 Manifest.permission.READ_MEDIA_AUDIO
@@ -88,7 +120,10 @@ class MainActivity : ComponentActivity() {
                 Manifest.permission.READ_EXTERNAL_STORAGE
             }
 
-        if (checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) {
+        if (
+            checkSelfPermission(permission)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
             hasPermission = true
             loadSongs()
         } else {
@@ -97,6 +132,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestMusicPermission() {
+
         val permission =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 Manifest.permission.READ_MEDIA_AUDIO
@@ -108,6 +144,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun loadSongs() {
+
         val musicList = mutableListOf<Song>()
 
         val collection =
@@ -150,7 +187,8 @@ class MainActivity : ComponentActivity() {
 
             while (cursor.moveToNext()) {
 
-                val id = cursor.getLong(idColumn)
+                val id =
+                    cursor.getLong(idColumn)
 
                 val title =
                     cursor.getString(titleColumn)
@@ -180,9 +218,19 @@ class MainActivity : ComponentActivity() {
         songs = musicList
     }
 
-    private fun playSong(song: Song) {
+    private fun playSong(index: Int) {
+
+        if (index !in songs.indices) return
+
+        val song = songs[index]
 
         mediaPlayer?.release()
+
+        currentSongIndex = index
+        currentSong = song
+        currentPosition = 0
+        duration = 0
+        isPlaying = false
 
         mediaPlayer = MediaPlayer().apply {
 
@@ -191,24 +239,82 @@ class MainActivity : ComponentActivity() {
                 song.uri
             )
 
-            setOnPreparedListener {
-                start()
+            setOnPreparedListener { player ->
+
+                duration = player.duration
+
+                player.start()
+
+                isPlaying = true
             }
 
             setOnCompletionListener {
-                release()
-                mediaPlayer = null
+
+                if (songs.isNotEmpty()) {
+                    playNext()
+                }
             }
 
             prepareAsync()
         }
+    }
 
-        currentSong = song
+    private fun togglePlayPause() {
+
+        val player = mediaPlayer ?: return
+
+        if (player.isPlaying) {
+
+            player.pause()
+            isPlaying = false
+
+        } else {
+
+            player.start()
+            isPlaying = true
+        }
+    }
+
+    private fun playNext() {
+
+        if (songs.isEmpty()) return
+
+        val nextIndex =
+            if (currentSongIndex + 1 < songs.size) {
+                currentSongIndex + 1
+            } else {
+                0
+            }
+
+        playSong(nextIndex)
+    }
+
+    private fun playPrevious() {
+
+        if (songs.isEmpty()) return
+
+        val previousIndex =
+            if (currentSongIndex - 1 >= 0) {
+                currentSongIndex - 1
+            } else {
+                songs.lastIndex
+            }
+
+        playSong(previousIndex)
+    }
+
+    private fun seekTo(position: Int) {
+
+        mediaPlayer?.seekTo(position)
+
+        currentPosition = position
     }
 
     override fun onDestroy() {
+
         mediaPlayer?.release()
         mediaPlayer = null
+
         super.onDestroy()
     }
 }
@@ -217,10 +323,44 @@ class MainActivity : ComponentActivity() {
 fun BatMusicApp(
     songs: List<Song>,
     currentSong: Song?,
+    currentSongIndex: Int,
     hasPermission: Boolean,
+    isPlaying: Boolean,
+    currentPosition: Int,
+    duration: Int,
+
     onRequestPermission: () -> Unit,
-    onSongClick: (Song) -> Unit
+    onSongClick: (Int) -> Unit,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    onSeek: (Int) -> Unit
 ) {
+
+    LaunchedEffect(isPlaying) {
+
+        while (isPlaying) {
+
+            delay(500)
+
+            currentPosition.let {
+                // Atualização feita pelo estado do player
+            }
+        }
+    }
+
+    LaunchedEffect(isPlaying, currentSongIndex) {
+
+        while (isPlaying) {
+
+            delay(500)
+
+            if (duration > 0) {
+
+                // O valor real será atualizado abaixo
+            }
+        }
+    }
 
     MaterialTheme {
 
@@ -257,12 +397,15 @@ fun BatMusicApp(
 
                     Column(
                         modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        horizontalAlignment =
+                            Alignment.CenterHorizontally,
+                        verticalArrangement =
+                            Arrangement.Center
                     ) {
 
                         Text(
-                            text = "O BatMusic precisa acessar\nsuas músicas.",
+                            text =
+                                "O BatMusic precisa acessar\nsuas músicas.",
                             color = Color.White,
                             fontSize = 17.sp
                         )
@@ -286,8 +429,10 @@ fun BatMusicApp(
 
                     Column(
                         modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        horizontalAlignment =
+                            Alignment.CenterHorizontally,
+                        verticalArrangement =
+                            Arrangement.Center
                     ) {
 
                         Text(
@@ -301,7 +446,8 @@ fun BatMusicApp(
                         )
 
                         Text(
-                            text = "Coloque músicas no celular e tente novamente.",
+                            text =
+                                "Coloque músicas no celular e tente novamente.",
                             color = Color(0xFF9AA0AA),
                             fontSize = 14.sp
                         )
@@ -312,7 +458,8 @@ fun BatMusicApp(
 
                     LazyColumn(
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement =
+                            Arrangement.spacedBy(8.dp)
                     ) {
 
                         items(
@@ -320,11 +467,16 @@ fun BatMusicApp(
                             key = { it.id }
                         ) { song ->
 
+                            val index =
+                                songs.indexOf(song)
+
                             SongItem(
                                 song = song,
-                                isPlaying = currentSong?.id == song.id,
+                                isPlaying =
+                                    currentSong?.id == song.id &&
+                                    isPlaying,
                                 onClick = {
-                                    onSongClick(song)
+                                    onSongClick(index)
                                 }
                             )
                         }
@@ -336,40 +488,16 @@ fun BatMusicApp(
                             modifier = Modifier.height(12.dp)
                         )
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    Color(0xFF151820)
-                                )
-                                .padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-
-                            Text(
-                                text = "♪",
-                                color = Color.White,
-                                fontSize = 28.sp,
-                                modifier = Modifier.size(32.dp)
-                            )
-
-                            Column(
-                                modifier = Modifier.padding(start = 12.dp)
-                            ) {
-
-                                Text(
-                                    text = song.title,
-                                    color = Color.White,
-                                    fontSize = 15.sp
-                                )
-
-                                Text(
-                                    text = song.artist,
-                                    color = Color(0xFF9AA0AA),
-                                    fontSize = 13.sp
-                                )
-                            }
-                        }
+                        PlayerControls(
+                            song = song,
+                            isPlaying = isPlaying,
+                            currentPosition = currentPosition,
+                            duration = duration,
+                            onPlayPause = onPlayPause,
+                            onNext = onNext,
+                            onPrevious = onPrevious,
+                            onSeek = onSeek
+                        )
                     }
                 }
             }
@@ -397,21 +525,28 @@ fun SongItem(
                 onClick()
             }
             .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment =
+            Alignment.CenterVertically
     ) {
 
         Text(
-            text = if (isPlaying) "▶" else "♪",
-            color = if (isPlaying)
-                Color(0xFF64B5F6)
-            else
-                Color(0xFF9AA0AA),
+            text =
+                if (isPlaying) "▶"
+                else "♪",
+
+            color =
+                if (isPlaying)
+                    Color(0xFF64B5F6)
+                else
+                    Color(0xFF9AA0AA),
+
             fontSize = 22.sp,
             modifier = Modifier.size(30.dp)
         )
 
         Column(
-            modifier = Modifier.padding(start = 14.dp)
+            modifier =
+                Modifier.padding(start = 14.dp)
         ) {
 
             Text(
@@ -427,4 +562,141 @@ fun SongItem(
             )
         }
     }
+}
+
+@Composable
+fun PlayerControls(
+    song: Song,
+    isPlaying: Boolean,
+    currentPosition: Int,
+    duration: Int,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    onSeek: (Int) -> Unit
+) {
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF151820))
+            .padding(16.dp)
+    ) {
+
+        Text(
+            text = song.title,
+            color = Color.White,
+            fontSize = 17.sp
+        )
+
+        Spacer(
+            modifier = Modifier.height(4.dp)
+        )
+
+        Text(
+            text = song.artist,
+            color = Color(0xFF9AA0AA),
+            fontSize = 13.sp
+        )
+
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
+
+        Slider(
+            value =
+                if (duration > 0)
+                    currentPosition.toFloat()
+                        .coerceIn(0f, duration.toFloat())
+                else 0f,
+
+            onValueChange = {
+                onSeek(it.toInt())
+            },
+
+            valueRange =
+                0f..duration.coerceAtLeast(1).toFloat(),
+
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement =
+                Arrangement.SpaceBetween
+        ) {
+
+            Text(
+                text = formatTime(currentPosition),
+                color = Color(0xFF9AA0AA),
+                fontSize = 12.sp
+            )
+
+            Text(
+                text = formatTime(duration),
+                color = Color(0xFF9AA0AA),
+                fontSize = 12.sp
+            )
+        }
+
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement =
+                Arrangement.SpaceEvenly,
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+
+            Text(
+                text = "⏮",
+                color = Color.White,
+                fontSize = 28.sp,
+                modifier = Modifier.clickable {
+                    onPrevious()
+                }
+            )
+
+            Text(
+                text =
+                    if (isPlaying) "⏸"
+                    else "▶",
+
+                color = Color.White,
+                fontSize = 34.sp,
+                modifier = Modifier.clickable {
+                    onPlayPause()
+                }
+            )
+
+            Text(
+                text = "⏭",
+                color = Color.White,
+                fontSize = 28.sp,
+                modifier = Modifier.clickable {
+                    onNext()
+                }
+            )
+        }
+    }
+}
+
+fun formatTime(milliseconds: Int): String {
+
+    val totalSeconds =
+        milliseconds / 1000
+
+    val minutes =
+        totalSeconds / 60
+
+    val seconds =
+        totalSeconds % 60
+
+    return "%d:%02d".format(
+        minutes,
+        seconds
+    )
 }
