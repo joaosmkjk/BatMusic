@@ -314,18 +314,6 @@ fun BatMusicApp(
     onOpenNowPlaying: () -> Unit, onCloseNowPlaying: () -> Unit, onClearHistory: () -> Unit
 ) {
     val currentSong = songs.getOrNull(currentIndex)
-    var localPosition by remember(currentPosition) { mutableLongStateOf(currentPosition) }
-    var localDuration by remember(duration) { mutableLongStateOf(duration) }
-
-    LaunchedEffect(isPlaying, currentIndex) {
-        while (isPlaying) {
-            kotlinx.coroutines.delay(500)
-            localPosition = currentSongPosition(currentPosition, localPosition, duration)
-            localDuration = duration
-        }
-    }
-    LaunchedEffect(currentPosition) { localPosition = currentPosition }
-
     val visibleSongs = remember(songs, searchQuery, favorites, showFavoritesOnly) {
         songs.mapIndexed { index, song -> index to song }.filter { (_, song) ->
             val matches = searchQuery.isBlank() || song.title.contains(searchQuery, true) || song.artist.contains(searchQuery, true) || song.album.contains(searchQuery, true)
@@ -337,7 +325,7 @@ fun BatMusicApp(
         Box(Modifier.fillMaxSize().background(Background)) {
             if (showNowPlaying && currentSong != null) {
                 NowPlayingScreen(
-                    song = currentSong, isPlaying = isPlaying, position = localPosition, duration = localDuration,
+                    song = currentSong, isPlaying = isPlaying, position = currentPosition, duration = duration,
                     favorite = currentSong.id in favorites, onBack = onCloseNowPlaying, onPlayPause = onPlayPause,
                     onNext = onNext, onPrevious = onPrevious, onSeek = onSeek,
                     onFavorite = { onToggleFavorite(currentSong.id) }, onShuffle = onShuffle, onRepeat = onRepeat
@@ -376,7 +364,7 @@ fun BatMusicApp(
                             }
                         }
                         currentSong?.let {
-                            MiniPlayer(it, isPlaying, localPosition, localDuration, it.id in favorites, onPlayPause, onNext, onOpenNowPlaying)
+                            MiniPlayer(it, isPlaying, currentPosition, duration, it.id in favorites, onPlayPause, onNext, onOpenNowPlaying)
                         }
                     }
                 }
@@ -384,8 +372,6 @@ fun BatMusicApp(
         }
     }
 }
-
-private fun currentSongPosition(base: Long, local: Long, duration: Long): Long = if (duration > 0) (local + 500).coerceAtMost(duration) else base
 
 @Composable
 private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
