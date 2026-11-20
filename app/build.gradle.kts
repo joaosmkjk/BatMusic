@@ -12,8 +12,8 @@ android {
         applicationId = "com.batmusic.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "2.0"
+        versionCode = 30
+        versionName = "3.0"
     }
 
     compileOptions {
@@ -43,4 +43,6 @@ dependencies {
 
     implementation("androidx.media3:media3-exoplayer:1.5.1")
     implementation("androidx.media3:media3-session:1.5.1")
+
+    testImplementation("junit:junit:4.13.2")
 }

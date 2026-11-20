@@ -11,8 +11,7 @@
         android:allowBackup="true"
         android:label="BatMusic"
         android:supportsRtl="true"
-        android:theme="@style/Theme.BatMusic"
-        android:usesCleartextTraffic="false">
+        android:theme="@style/Theme.BatMusic">
 
         <activity
             android:name=".MainActivity"
