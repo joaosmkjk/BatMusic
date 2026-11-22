@@ -53,7 +53,7 @@ class LoudnessMeter(
     private val shelfCoefficients = highShelf(
         sampleRate.toDouble(), 1681.974450955533, 3.999843853973347, 0.7071752369554196
     )
-    private val highPassCoefficients = highPass(
+    private val highPassCoefficients = makeHighPassCoefficients(
         sampleRate.toDouble(), 38.13547087602444, 0.5003270373238773
     )
 
@@ -187,7 +187,7 @@ class LoudnessMeter(
             }
         }
 
-        private fun highPass(fs: Double, frequency: Double, q: Double): Coefficients {
+        private fun makeHighPassCoefficients(fs: Double, frequency: Double, q: Double): Coefficients {
             val w = 2.0 * PI * frequency / fs
             val c = cos(w)
             val alpha = sin(w) / (2.0 * q)
