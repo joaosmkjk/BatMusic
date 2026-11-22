@@ -248,7 +248,6 @@ class MainActivity : ComponentActivity() {
                 history = history,
                 playlists = playlists,
                 folderArtwork = folderArtwork,
-                folderArtwork = folderArtwork,
                 wallpaperUri = wallpaperUri,
                 homePanelUri = homePanelUri, immersiveHome = immersiveHome,
                 homePanelHeight = homePanelHeight, homePanelOpacity = homePanelOpacity,
