@@ -71,13 +71,21 @@ internal fun PlaylistLibraryScreen(
             if (playlists.isEmpty()) EmptyPanel("Crie sua primeira playlist", "Organize suas faixas locais em uma sequência própria.", "＋ Criar playlist", { dialog = "create" }, Modifier.padding(20.dp))
             else LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 items(playlists, key = { it.id }) { item ->
+                    val previewTracks = item.songIds.mapNotNull { id -> songs.firstOrNull { it.id == id } }.take(2)
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { selected = item.id }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Artwork(item.artworkUri?.let { Uri.parse(it) } ?: item.songIds.firstNotNullOfOrNull { id -> songs.firstOrNull { it.id == id }?.artworkUri }, Modifier.size(60.dp), item.name)
                         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                             Text(item.name, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${item.songIds.size} faixas", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                            if (previewTracks.isNotEmpty()) {
+                                Text(previewTracks.joinToString(" • ") { it.title }, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            } else if (item.songIds.isNotEmpty()) {
+                                Text("Faixas salvas • indisponíveis no catálogo", color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp, maxLines = 1)
+                            } else {
+                                Text("Playlist vazia", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                            }
                         }
-                        TextButton(onClick = { onPlay(item.id) }) { Text("▶") }
+                        TextButton(onClick = { onPlay(item.id) }, enabled = previewTracks.isNotEmpty()) { Text("▶") }
                         TextButton(onClick = { name = item.name; selected = item.id; dialog = "rename" }) { Text("⋮") }
                     }
                 }
@@ -149,12 +157,14 @@ internal fun PlaylistLibraryScreen(
         onDismissRequest = { adding = false }, title = { Text("Adicionar faixas") },
         text = { LazyColumn(Modifier.heightIn(max = 420.dp)) { items(songs, key = { it.id }) { song ->
             val checked = song.id in selectedIds || song.id in playlist.songIds
-            Row(Modifier.fillMaxWidth().clickable { selectedIds = if (checked) selectedIds - song.id else selectedIds + song.id }.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().then(if (song.id !in playlist.songIds) Modifier.clickable {
+                selectedIds = if (song.id in selectedIds) selectedIds - song.id else selectedIds + song.id
+            } else Modifier).padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked, onCheckedChange = { selectedIds = if (it) selectedIds + song.id else selectedIds - song.id }, enabled = song.id !in playlist.songIds)
                 Column { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis); Text(song.artist, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         } } },
-        confirmButton = { TextButton(onClick = { onAddSongs(playlist.id, selectedIds.toList()); adding = false }) { Text("Adicionar (${selectedIds.size})") } },
+        confirmButton = { TextButton(onClick = { onAddSongs(playlist.id, selectedIds.filterNot { it in playlist.songIds }); adding = false }, enabled = selectedIds.any { it !in playlist.songIds }) { Text("Adicionar (${selectedIds.count { it !in playlist.songIds }})") } },
         dismissButton = { TextButton(onClick = { adding = false }) { Text("Cancelar") } }
     )
     deleteConfirm?.let { id -> AlertDialog(onDismissRequest = { deleteConfirm = null }, title = { Text("Excluir playlist?") }, text = { Text("As músicas do dispositivo não serão removidas.") },
