@@ -218,7 +218,7 @@ class LoudnessMeter(
 
 /** Small radix-2 spectrum analyzer. Returns linear magnitudes for bins [0, N/2). */
 class BatSpectrumAnalyzer(size: Int = 1024) {
-    val fftSize: Int = size.also { require(it >= 64 && it and (it - 1) == 0) }
+    val fftSize: Int = size.also { require(it >= 64 && (it and (it - 1)) == 0) }
     private val real = DoubleArray(fftSize)
     private val imag = DoubleArray(fftSize)
 
