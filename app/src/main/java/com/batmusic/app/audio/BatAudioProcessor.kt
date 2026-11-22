@@ -118,7 +118,10 @@ class BatAudioProcessor : BaseAudioProcessor() {
     override fun onQueueEndOfStream() {
         val limiter = truePeakLimiter ?: return
         val pendingFrames = limiter.pendingFrames
-        if (pendingFrames <= 0) return
+        if (pendingFrames <= 0) {
+            limiter.reset()
+            return
+        }
         val sampleCount = pendingFrames * channels
         ensureOutputCapacity(sampleCount)
         limiter.beginBlock()
@@ -147,6 +150,9 @@ class BatAudioProcessor : BaseAudioProcessor() {
         if (limiterActive) clippingBlocks += 1
         if (visualizerEnabled) captureSamples(outputSamples, drainedFrames)
         output.flip()
+        // Drain closes this stream. Reset the delayed timeline so the next
+        // media item cannot inherit stale lookahead frames or silence padding.
+        limiter.reset()
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
