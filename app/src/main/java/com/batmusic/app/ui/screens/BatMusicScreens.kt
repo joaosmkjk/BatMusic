@@ -121,6 +121,7 @@ fun BatMusicApp(
     onRemovePlaylistSong: (String, Long) -> Unit, onReorderPlaylistSong: (String, Int, Int) -> Unit,
     onPlayPlaylist: (String) -> Unit, onShufflePlaylist: (String) -> Unit, onQueuePlaylist: (String) -> Unit,
     onChoosePlaylistArtwork: (String) -> Unit,
+    folderArtwork: Map<String, String>, onChooseFolderArtwork: (String) -> Unit, onChooseSongArtwork: (Long) -> Unit,
     onChooseWallpaper: () -> Unit, onResetWallpaper: () -> Unit, onChooseAvatar: () -> Unit, onResetAvatar: () -> Unit,
     onChooseHomePanel: () -> Unit, onResetHomePanel: () -> Unit, onImmersiveHome: (Boolean) -> Unit,
     onHomePanelHeight: (Float) -> Unit, onHomePanelOpacity: (Float) -> Unit, onHomePanelOverlay: (Float) -> Unit,
@@ -312,7 +313,8 @@ fun BatMusicApp(
                     onPlayTrack = onPlayContextSong, onQueue = onQueuePlaylist,
                     onShuffle = onShufflePlaylist,
                     onChooseArtwork = onChoosePlaylistArtwork,
-                    onPlayFolder = onPlayFolder
+                    onPlayFolder = onPlayFolder, folderArtwork = folderArtwork,
+                    onChooseFolderArtwork = onChooseFolderArtwork, onChooseSongArtwork = onChooseSongArtwork
                 )
                 else -> HomeScreen(
                     songs = visibleSongs, favorites = favorites, history = history,
