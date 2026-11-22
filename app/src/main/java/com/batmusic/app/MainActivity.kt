@@ -865,6 +865,22 @@ class MainActivity : ComponentActivity() {
                 bassBoostEnabled = false; bassBoostStrength = 0
                 batAudioEnabled = true; batBoost = 100
             }
+            "BATLOUD" -> {
+                equalizerEnabled = true
+                equalizerGains = listOf(10, 8, 4, 0, 0, 5, 10, 8, 4, 0)
+                bassBoostEnabled = false
+                bassBoostStrength = 0
+                batAudioEnabled = true
+                batBoost = 160
+                preampDb = 3f
+                compressorEnabled = true
+                compressorThreshold = -14f
+                compressorRatio = 2.5f
+                compressorAttack = 12f
+                compressorRelease = 180f
+                compressorMakeup = 3f
+                limiterRelease = 90f
+            }
             "Custom" -> Unit
             "Alternative / Indie" -> {
                 equalizerEnabled = true
