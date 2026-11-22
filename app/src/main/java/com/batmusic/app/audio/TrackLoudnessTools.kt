@@ -65,7 +65,7 @@ data class LoudnessGainPlan(
 )
 
 object LoudnessNormalizer {
-    const val DEFAULT_TARGET_LUFS = -18f
+    const val DEFAULT_TARGET_LUFS = -16f
     const val TRUE_PEAK_CEILING_DBTP = -1.5f
     const val MAX_POSITIVE_GAIN_DB = 3f
     const val MAX_CUT_DB = -12f
