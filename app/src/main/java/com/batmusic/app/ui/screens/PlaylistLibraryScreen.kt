@@ -60,6 +60,9 @@ internal fun PlaylistLibraryScreen(
             if (playlist != null) {
                 Artwork(playlist.artworkUri?.let { Uri.parse(it) } ?: playlist.songIds.firstNotNullOfOrNull { id -> songs.firstOrNull { it.id == id }?.artworkUri }, Modifier.size(42.dp), playlist.name)
                 Spacer(Modifier.width(9.dp))
+            } else if (selectedFolder != null) {
+                Artwork(folderArtwork[selectedFolder]?.let { Uri.parse(it) } ?: folders[selectedFolder]?.firstOrNull()?.artworkUri, Modifier.size(42.dp), selectedFolder)
+                Spacer(Modifier.width(9.dp))
             }
             Column(Modifier.weight(1f)) {
                 Text(playlist?.name ?: selectedFolder?.substringAfterLast('/')?.ifBlank { "Armazenamento" } ?: when (section) { "Pastas" -> "Pastas"; "Todas" -> "Todas as músicas"; else -> "Biblioteca" }, color = MaterialTheme.colorScheme.onBackground, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -132,6 +135,7 @@ internal fun PlaylistLibraryScreen(
                                 Text(song.title, color = if (song.id == currentSongId && playing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(song.artist + " • " + song.album, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
+                            TextButton(onClick = { onChooseSongArtwork(song.id) }) { Text("Capa") }
                         }
                     }
                 }
