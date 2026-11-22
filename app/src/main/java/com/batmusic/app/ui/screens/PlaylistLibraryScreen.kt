@@ -138,7 +138,13 @@ internal fun PlaylistLibraryScreen(
                     "Histórico" -> filteredSongs.filter { it.id in history }.sortedBy { history.indexOf(it.id) }
                     else -> filteredSongs
                 }
-                LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+                if (sectionTracks.isEmpty()) {
+                    when (section) {
+                        "Favoritos" -> EmptyPanel("Sem favoritas ainda", "Toque no coração de uma faixa para encontrá-la rapidamente aqui.", "Ver todas as músicas", { section = "Todas"; query = "" }, Modifier.padding(20.dp))
+                        "Histórico" -> EmptyPanel("Seu histórico está vazio", "As músicas reproduzidas aparecerão aqui para você continuar de onde parou.", "Ver playlists", { section = "Playlists"; query = "" }, Modifier.padding(20.dp))
+                        else -> EmptyPanel("Nenhuma faixa encontrada", "Tente outra busca ou atualize a biblioteca.", "Limpar busca", { query = "" }, Modifier.padding(20.dp))
+                    }
+                } else LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                     items(sectionTracks, key = { it.id }) { song ->
                         Row(Modifier.fillMaxWidth().clickable {
                             onPlayTrack(sectionTracks, sectionTracks.indexOfFirst { it.id == song.id }, "LIBRARY", "all")
