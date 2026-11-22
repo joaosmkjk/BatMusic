@@ -19,7 +19,9 @@ import kotlin.math.log10
 
 /** Immutable, atomically swapped controls. queueInput reads one snapshot per PCM block. */
 data class BatAudioSettings(
+    /** Enables tone/gain processing; the safety limiter has its own bypass. */
     val enabled: Boolean = false,
+    val limiterEnabled: Boolean = true,
     val batBoost: Int = 100,
     val equalizerEnabled: Boolean = false,
     val bandGainsDb: List<Float> = List(10) { 0f },
@@ -227,7 +229,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
         for (frame in 0 until frameCount) {
             val sampleOffset = frame * channels
             if (limiter.processFrame(
-                    samples, sampleOffset, rawSampleBits, config.enabled,
+                    samples, sampleOffset, rawSampleBits, config.limiterEnabled,
                     outputSamples, outputRawBits, writtenFrames * channels, outputBypassed, writtenFrames
                 )) {
                 val outputOffset = writtenFrames * channels
