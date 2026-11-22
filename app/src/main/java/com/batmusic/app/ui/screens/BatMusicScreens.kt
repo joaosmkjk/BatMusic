@@ -60,7 +60,7 @@ import kotlin.math.roundToInt
 import android.widget.Toast
 
 private val librarySections = listOf("Playlists")
-private val audioPresets = listOf("Original / Flat", "Rock", "Metal", "Classical", "Electronic", "Vocal", "Custom")
+private val audioPresets = listOf("Original / Flat", "Rock", "Metal", "Classical", "Electronic", "Vocal", "BATLOUD", "Custom")
 private val LocalBatAnimations = staticCompositionLocalOf { true }
 private val LocalBatAnimationSpeed = staticCompositionLocalOf { 1f }
 private val LocalBatCardRadius = staticCompositionLocalOf { 5f }
