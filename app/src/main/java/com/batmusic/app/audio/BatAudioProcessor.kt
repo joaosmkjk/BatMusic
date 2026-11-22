@@ -90,7 +90,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
         sampleRate = inputAudioFormat.sampleRate
         configuredEncoding = inputAudioFormat.encoding
         truePeakLimiter = if (formatSupported) {
-            LookaheadTruePeakLimiter(sampleRate, channels, TRUE_PEAK_CEILING, releaseMs = settings.limiterReleaseMs)
+            LookaheadTruePeakLimiter(sampleRate, channels, TRUE_PEAK_CEILING, marginDb = 0f, lookaheadMs = 5f, releaseMs = settings.limiterReleaseMs)
         } else null
         val initialOutputSamples = (truePeakLimiter?.latencyFrames ?: 0) * channels
         outputSamples = FloatArray(initialOutputSamples)
@@ -435,7 +435,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
 
     companion object {
         private const val VISUALIZER_SIZE = 4096
-        private const val TRUE_PEAK_CEILING = 0.985f
+        private const val TRUE_PEAK_CEILING = 0.8912509f // -1 dBFS true-peak target
         private val BAND_HZ = floatArrayOf(31f, 62f, 125f, 250f, 500f, 1_000f, 2_000f, 4_000f, 8_000f, 16_000f)
     }
 }

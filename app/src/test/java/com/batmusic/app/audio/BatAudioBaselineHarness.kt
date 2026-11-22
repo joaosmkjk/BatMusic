@@ -74,7 +74,7 @@ object BatAudioBaselineHarness {
             appendLine("eq_max_abs_error_db=${fmt(eq.maxErrorDb)}; eq_mean_abs_error_db=${fmt(eq.meanErrorDb)}")
             appendLine("bypass_pcm_float_bit_exact=$bypassBitExact")
             appendLine("bypass_pcm16_bit_exact=$pcm16BypassBitExact")
-            appendLine("limiter_input=batBoost_200_percent(+6.0206dB), compressor_disabled, float_pcm, ceiling_code=0.985, internal_margin_db=0.5")
+            appendLine("limiter_input=batBoost_200_percent(+6.0206dB), compressor_disabled, float_pcm, ceiling_code=0.8912509 (-1 dBFS), internal_margin_db=0, lookahead_ms=5")
             listOf(fullScale, interSample, square).forEach { metric ->
                 appendLine("${metric.name}: input_peak=${fmt(metric.inputPeak)} output_peak=${fmt(metric.outputPeak)} true_peak_8x=${fmt(metric.truePeak8x)} peak_reduction_db=${fmt(metric.peakReductionDb)} samples_abs_ge_1=${metric.samplesAtOrAboveOne}")
             }
@@ -495,8 +495,8 @@ class BatAudioBaselineTest {
         assertTrue(report.contains("impulse_latency_samples=44100:52,48000:55,96000:103"))
         assertTrue("EQ response error must remain below 0.1 dB", eqError <= 0.1)
         assertTrue("THD+N must be at most -60 dB", thdn <= -60.0)
-        assertTrue("True peak must retain at least 0.25 dB margin under the 0.985 ceiling", truePeaks.all { it <= 0.985 * 10.0.pow(-0.25 / 20.0) })
-        assertTrue("Linked stereo true peak must retain ceiling margin", stereoPeak <= 0.985 * 10.0.pow(-0.25 / 20.0))
+        assertTrue("True peak must remain at or below the -1 dBFS target", truePeaks.all { it <= 0.8912509 + 1e-4 })
+        assertTrue("Linked stereo true peak must remain at or below -1 dBFS", stereoPeak <= 0.8912509 + 1e-4)
         assertTrue("BATBOOST linear gain error must remain within 0.01 dB", abs(gainError) <= 0.01)
         assertTrue("New BATBOOST default must not compress the signal", report.contains("compressor_default_enabled=false"))
         val compressorDelta = Regex("compressor_on_vs_transparent_rms_delta_db=(-?[0-9.]+)").find(report)!!.groupValues[1].toDouble()
