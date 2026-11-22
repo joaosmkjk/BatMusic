@@ -145,6 +145,8 @@ class BatAudioProcessor : BaseAudioProcessor() {
         }
         outputRmsDb = if (measuredSamples > 0) (20.0 * log10(sqrt(squareSum / measuredSamples).coerceAtLeast(1e-12))).toFloat() else -120f
         outputPeak = peak.coerceAtMost(1f)
+        preLimiterPeak = limiter.blockPreLimiterPeak
+        preLimiterRmsDb = limiter.blockPreLimiterRmsDb
         limiterActive = limiter.blockLimited
         limiterGainReductionDb = limiter.blockGainReductionDb
         if (limiterActive) clippingBlocks += 1
@@ -208,17 +210,6 @@ class BatAudioProcessor : BaseAudioProcessor() {
         if (config.enabled) processEffects(samples, frameCount, config)
         else compressorGainReductionDb = 0f
 
-        var prePeak = 0f
-        var preSquareSum = 0.0
-        for (index in 0 until sampleCount) {
-            val value = samples[index].let { if (it.isFinite()) it else 0f }
-            val magnitude = abs(value)
-            if (magnitude > prePeak) prePeak = magnitude
-            preSquareSum += value.toDouble() * value.toDouble()
-        }
-        preLimiterPeak = prePeak
-        preLimiterRmsDb = if (sampleCount > 0) (20.0 * log10(sqrt(preSquareSum / sampleCount).coerceAtLeast(1e-12))).toFloat() else -120f
-
         val limiter = truePeakLimiter ?: return
         val expectedOutputFrames = limiter.outputFramesAfterInput(frameCount)
         val output = replaceOutputBuffer(expectedOutputFrames * channels * bytesPerSample)
@@ -249,6 +240,8 @@ class BatAudioProcessor : BaseAudioProcessor() {
         }
         outputPeak = outputBlockPeak.coerceAtMost(1f)
         outputRmsDb = if (outputSampleCount > 0) (20.0 * log10(sqrt(outputSquareSum / outputSampleCount).coerceAtLeast(1e-12))).toFloat() else -120f
+        preLimiterPeak = limiter.blockPreLimiterPeak
+        preLimiterRmsDb = limiter.blockPreLimiterRmsDb
         limiterActive = limiter.blockLimited
         limiterGainReductionDb = limiter.blockGainReductionDb
         if (limiterActive) clippingBlocks += 1
