@@ -126,6 +126,8 @@ class MainActivity : ComponentActivity() {
     private var preLimiterPeak by mutableFloatStateOf(0f)
     private var preLimiterRmsDb by mutableFloatStateOf(-120f)
     private var outputRmsDb by mutableFloatStateOf(-120f)
+    private var momentaryLufs by mutableFloatStateOf(-120f)
+    private var integratedLufs by mutableFloatStateOf(-120f)
     private var activeTheme by mutableStateOf(BatTheme.default)
     private var themeProfiles by mutableStateOf(mapOf(BatTheme.default.name to BatTheme.default))
     private var screenThemeAssignments by mutableStateOf(emptyMap<String, String>())
@@ -760,6 +762,8 @@ class MainActivity : ComponentActivity() {
         preLimiterPeak = extras.getFloat(PlaybackEffects.SESSION_PRE_LIMITER_PEAK, 0f).coerceAtLeast(0f)
         preLimiterRmsDb = extras.getFloat(PlaybackEffects.SESSION_PRE_LIMITER_RMS_DB, -120f).coerceIn(-120f, 24f)
         outputRmsDb = extras.getFloat(PlaybackEffects.SESSION_OUTPUT_RMS_DB, -120f).coerceIn(-120f, 24f)
+        momentaryLufs = extras.getFloat(PlaybackEffects.SESSION_MOMENTARY_LUFS, -120f).coerceIn(-120f, 12f)
+        integratedLufs = extras.getFloat(PlaybackEffects.SESSION_INTEGRATED_LUFS, -120f).coerceIn(-120f, 12f)
         extras.getFloatArray(PlaybackEffects.SESSION_WAVEFORM)?.let { visualizerWaveform = it }
         extras.getFloatArray(PlaybackEffects.SESSION_SPECTRUM)?.let { visualizerSpectrum = it }
     }
