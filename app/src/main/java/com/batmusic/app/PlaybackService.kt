@@ -160,6 +160,11 @@ class PlaybackService : MediaSessionService() {
         }
     }
     private val queueListener = object : Player.Listener {
+        override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+            // Integrated loudness belongs to one track, never to the whole playback session.
+            audioEngine.processor.resetTrackLoudness()
+        }
+
         override fun onEvents(player: Player, events: Player.Events) {
             val queueStateChanged = events.contains(Player.EVENT_TIMELINE_CHANGED) ||
                 events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION) ||
