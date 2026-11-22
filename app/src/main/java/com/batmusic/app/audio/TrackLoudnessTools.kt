@@ -76,6 +76,7 @@ object LoudnessNormalizer {
         if (integratedLufs <= LoudnessMeter.ABSOLUTE_GATE_LUFS.toFloat()) return null
         val requested = targetLufs - integratedLufs
         val peakAllowance = TRUE_PEAK_CEILING_DBTP - truePeakDbtp
+        if (peakAllowance < MAX_CUT_DB) return null
         val applied = requested.coerceIn(MAX_CUT_DB, MAX_POSITIVE_GAIN_DB).coerceAtMost(peakAllowance)
         return LoudnessGainPlan(requested, applied, integratedLufs + applied, truePeakDbtp + applied)
     }
@@ -89,6 +90,7 @@ object LoudnessABMatcher {
             !comparisonTruePeakDbtp.isFinite() || referenceLufs <= -70f || comparisonLufs <= -70f) return null
         val requested = (referenceLufs - comparisonLufs).coerceIn(-MAX_MATCH_GAIN_DB, MAX_MATCH_GAIN_DB)
         val peakAllowance = LoudnessNormalizer.TRUE_PEAK_CEILING_DBTP - comparisonTruePeakDbtp
+        if (peakAllowance < -MAX_MATCH_GAIN_DB) return null
         return requested.coerceAtMost(peakAllowance)
     }
 }
