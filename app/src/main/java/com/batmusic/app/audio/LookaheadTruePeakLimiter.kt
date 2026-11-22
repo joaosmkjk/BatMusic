@@ -3,7 +3,9 @@ package com.batmusic.app.audio
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.exp
+import kotlin.math.log10
 import kotlin.math.pow
+import kotlin.math.sqrt
 
 /**
  * Allocation-free streaming true-peak limiter core. It uses a 4x, 16-tap
@@ -44,7 +46,15 @@ internal class LookaheadTruePeakLimiter(
         private set
     var blockMinimumGain: Float = 1f
         private set
-    val blockGainReductionDb: Float get() = if (blockMinimumGain >= 1f) 0f else -20f * kotlin.math.log10(blockMinimumGain)
+    var blockPreLimiterPeak: Float = 0f
+        private set
+    private var blockPreLimiterSquareSum = 0.0
+    private var blockPreLimiterSampleCount = 0
+    val blockPreLimiterRmsDb: Float
+        get() = if (blockPreLimiterSampleCount > 0) {
+            (20.0 * log10(sqrt(blockPreLimiterSquareSum / blockPreLimiterSampleCount).coerceAtLeast(1e-12))).toFloat()
+        } else -120f
+    val blockGainReductionDb: Float get() = if (blockMinimumGain >= 1f) 0f else -20f * log10(blockMinimumGain)
     val latencyFrames: Int get() = delayFrames
     val pendingFrames: Int get() = (realFrames - outputFrames).toInt()
 
@@ -57,12 +67,18 @@ internal class LookaheadTruePeakLimiter(
         limiterGain = 1f
         blockLimited = false
         blockMinimumGain = 1f
+        blockPreLimiterPeak = 0f
+        blockPreLimiterSquareSum = 0.0
+        blockPreLimiterSampleCount = 0
         lastOutputBypassed = false
     }
 
     fun beginBlock() {
         blockLimited = false
         blockMinimumGain = 1f
+        blockPreLimiterPeak = 0f
+        blockPreLimiterSquareSum = 0.0
+        blockPreLimiterSampleCount = 0
     }
 
     /** Called by the settings publisher, not from queueInput. */
@@ -142,6 +158,17 @@ internal class LookaheadTruePeakLimiter(
         val outputRingOffset = outputSlot * channels
         lastOutputBypassed = !activeRing[outputSlot]
         outputBypassed[outputFrameOffset] = lastOutputBypassed
+
+        // Measure the delayed frame before limiter gain so this RMS/peak window
+        // describes exactly the same audio frames as the post-limiter output meter.
+        for (channel in 0 until channels) {
+            val value = audioRing[outputRingOffset + channel]
+            if (value.isFinite()) {
+                blockPreLimiterPeak = maxOf(blockPreLimiterPeak, abs(value))
+                blockPreLimiterSquareSum += value.toDouble() * value.toDouble()
+                blockPreLimiterSampleCount++
+            }
+        }
 
         if (lastOutputBypassed) {
             limiterGain = 1f
