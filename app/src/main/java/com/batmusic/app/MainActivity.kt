@@ -108,6 +108,7 @@ class MainActivity : ComponentActivity() {
     private var showNowPlaying by mutableStateOf(false)
     private var preampDb by mutableFloatStateOf(0f)
     private var compressorEnabled by mutableStateOf(false)
+    private var multibandEnabled by mutableStateOf(false)
     private var limiterRelease by mutableFloatStateOf(120f)
     private var compressorThreshold by mutableFloatStateOf(-12f)
     private var compressorRatio by mutableFloatStateOf(3f)
@@ -285,6 +286,7 @@ class MainActivity : ComponentActivity() {
                 effectStatus = effectStatus,
                 preampDb = preampDb,
                 compressorEnabled = compressorEnabled,
+                multibandEnabled = multibandEnabled,
                 compressorThreshold = compressorThreshold,
                 compressorRatio = compressorRatio,
                 compressorAttack = compressorAttack,
@@ -359,6 +361,7 @@ class MainActivity : ComponentActivity() {
                 onClearHistory = { history = emptyList(); savePreferences() },
                 onPreampChange = { preampDb = it; audioPreset = "Personalizado"; sendEffectSettings() },
                 onCompressorEnabledChange = { compressorEnabled = it; sendEffectSettings() },
+                onMultibandEnabledChange = { multibandEnabled = it; sendEffectSettings() },
                 onCompressorThresholdChange = { compressorThreshold = it; sendEffectSettings() },
                 onCompressorRatioChange = { compressorRatio = it; sendEffectSettings() },
                 onCompressorAttackChange = { compressorAttack = it; sendEffectSettings() },
@@ -780,6 +783,7 @@ class MainActivity : ComponentActivity() {
             putInt(PlaybackEffects.EXTRA_BASS_STRENGTH, bassBoostStrength)
             putFloat(PlaybackEffects.EXTRA_PREAMP_DB, preampDb)
             putBoolean(PlaybackEffects.EXTRA_COMPRESSOR_ENABLED, compressorEnabled)
+            putBoolean(PlaybackEffects.EXTRA_MULTIBAND_ENABLED, multibandEnabled)
             putFloat(PlaybackEffects.EXTRA_COMPRESSOR_THRESHOLD, compressorThreshold)
             putFloat(PlaybackEffects.EXTRA_COMPRESSOR_RATIO, compressorRatio)
             putFloat(PlaybackEffects.EXTRA_COMPRESSOR_ATTACK, compressorAttack)
@@ -1072,6 +1076,7 @@ class MainActivity : ComponentActivity() {
         preampDb = prefs.getFloat("preamp_db_float", prefs.getInt("preamp_db", 0).toFloat()).coerceIn(0f, 24f)
         BatAudioSettingsMigration.migrate(this)
         compressorEnabled = prefs.getBoolean("compressor_enabled", false)
+        multibandEnabled = prefs.getBoolean("multiband_enabled", false)
         limiterRelease = prefs.getFloat("limiter_release_ms", 120f).coerceIn(20f, 1_000f)
         compressorThreshold = prefs.getFloat("compressor_threshold", -12f).coerceIn(-36f, 0f)
         compressorRatio = prefs.getFloat("compressor_ratio", 3f).coerceIn(1f, 12f)
