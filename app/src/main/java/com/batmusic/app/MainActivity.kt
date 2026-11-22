@@ -914,8 +914,9 @@ class MainActivity : ComponentActivity() {
         if (requestedItems.isEmpty()) return
         val preservesPlaylist = playlist != null && requestedItems.map { it.mediaId } == playlist.songIds.map(Long::toString)
         if (playlist != null && !preservesPlaylist) {
-            Log.w(TAG, "Playlist queue change deferred because a track has no current or saved MediaStore descriptor")
-            return
+            // A missing file must not prevent every other available track from playing.
+            // Use a custom queue for this session; the playlist itself remains unchanged.
+            Log.w(TAG, "Some playlist tracks are unavailable; playing the available tracks in a custom queue")
         }
         val contextType = when {
             kind == "PLAYLIST" && preservesPlaylist -> "PLAYLIST"
