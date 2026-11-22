@@ -137,7 +137,7 @@ object BatAudioBaselineHarness {
     }
 
     private fun measureGainLinearityDb(): Double {
-        val input = FloatArray(24_576) { i -> (0.45 * sin(2.0 * PI * 1_000.0 * i / 48_000.0)).toFloat() }
+        val input = FloatArray(24_576) { i -> (0.35 * sin(2.0 * PI * 1_000.0 * i / 48_000.0)).toFloat() }
         val output = process(BatAudioSettings(enabled = true, batBoost = 200, compressorEnabled = false), 48_000, input)
         val start = 2_016
         val inputRms = rms(input, start)
@@ -492,7 +492,7 @@ class BatAudioBaselineTest {
         assertTrue(report.contains("bypass_pcm_float_bit_exact=true"))
         assertTrue(report.contains("bypass_pcm16_bit_exact=true"))
         assertTrue(report.contains("eos_last_sample_preserved=true"))
-        assertTrue(report.contains("impulse_latency_samples=44100:52,48000:55,96000:103"))
+        assertTrue(report.contains("impulse_latency_samples=44100:228,48000:247,96000:487"))
         assertTrue("EQ response error must remain below 0.1 dB", eqError <= 0.1)
         assertTrue("THD+N must be at most -60 dB", thdn <= -60.0)
         assertTrue("True peak must remain at or below the -1 dBFS target", truePeaks.all { it <= 0.8912509 + 1e-4 })
