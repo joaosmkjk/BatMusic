@@ -6,15 +6,11 @@ import kotlin.math.max
 import kotlin.math.pow
 
 /**
- * Three-band feed-forward dynamics stage.
+ * Three-band feed-forward dynamics stage with complementary one-pole splits.
+ * Bands are low (<250 Hz), mid (250 Hz..4 kHz), and high (>4 kHz).
+ * Detectors are peak-linked across channels. This stage is not a limiter.
  *
- * The crossover is a complementary one-pole split: low < 250 Hz, mid
- * 250 Hz..4 kHz, and high > 4 kHz. The three bands sum to the input before
- * gain reduction, avoiding crossover holes. Detectors are peak-linked across
- * channels per band. This is an optional effect stage, not a limiter.
- *
- * The class allocates its state once. process() performs no per-block or
- * per-frame allocations and must be called from the PCM audio thread.
+ * State is allocated once; process() does not allocate on the audio thread.
  */
 internal class MultibandDynamics(
     private val sampleRate: Int,
@@ -42,6 +38,9 @@ internal class MultibandDynamics(
     private val envelopes = FloatArray(3)
     private val attack = FloatArray(3)
     private val release = FloatArray(3)
+    private val lowBand = FloatArray(channels)
+    private val midBand = FloatArray(channels)
+    private val highBand = FloatArray(channels)
 
     init { updateTimeConstants() }
 
@@ -65,13 +64,12 @@ internal class MultibandDynamics(
         val threshold = thresholdDb.coerceIn(-48f, 0f)
         val compressionRatio = ratio.coerceIn(1f, 12f)
         val makeup = 10f.pow(makeupDb.coerceIn(-12f, 6f) / 20f)
-        val thresholdLinear = 10f.pow(threshold / 20f)
 
         for (frame in 0 until frameCount) {
             val offset = frame * channels
-            var peaksLow = 0f
-            var peaksMid = 0f
-            var peaksHigh = 0f
+            var peakLow = 0f
+            var peakMid = 0f
+            var peakHigh = 0f
 
             for (channel in 0 until channels) {
                 val input = interleaved[offset + channel].let { if (it.isFinite()) it else 0f }
@@ -81,31 +79,37 @@ internal class MultibandDynamics(
                 val mid = midState[channel] + highCoefficient * (remainder - midState[channel])
                 midState[channel] = mid
                 val high = remainder - mid
-                peaksLow = max(peaksLow, abs(low))
-                peaksMid = max(peaksMid, abs(mid))
-                peaksHigh = max(peaksHigh, abs(high))
+                lowBand[channel] = low
+                midBand[channel] = mid
+                highBand[channel] = high
+                peakLow = max(peakLow, abs(low))
+                peakMid = max(peakMid, abs(mid))
+                peakHigh = max(peakHigh, abs(high))
             }
 
-            val peaks = floatArrayOf(peaksLow, peaksMid, peaksHigh)
-            val gains = FloatArray(3)
-            for (band in 0..2) {
-                val coefficient = if (peaks[band] > envelopes[band]) attack[band] else release[band]
-                envelopes[band] = coefficient * envelopes[band] + (1f - coefficient) * peaks[band]
-                val levelDb = 20f * kotlin.math.log10(envelopes[band].coerceAtLeast(1e-6f))
-                val overDb = levelDb - threshold
-                val reductionDb = if (overDb > 0f) overDb * (1f - 1f / compressionRatio) else 0f
-                gains[band] = 10f.pow(-reductionDb / 20f) * makeup
-            }
-
+            val gainLow = gainForBand(0, peakLow, threshold, compressionRatio, makeup)
+            val gainMid = gainForBand(1, peakMid, threshold, compressionRatio, makeup)
+            val gainHigh = gainForBand(2, peakHigh, threshold, compressionRatio, makeup)
             for (channel in 0 until channels) {
-                val input = interleaved[offset + channel].let { if (it.isFinite()) it else 0f }
-                val low = lowState[channel]
-                val remainder = input - low
-                val mid = midState[channel]
-                val high = remainder - mid
-                val output = low * gains[0] + mid * gains[1] + high * gains[2]
+                val output = lowBand[channel] * gainLow +
+                    midBand[channel] * gainMid + highBand[channel] * gainHigh
                 interleaved[offset + channel] = if (output.isFinite()) output else 0f
             }
         }
+    }
+
+    private fun gainForBand(
+        band: Int,
+        peak: Float,
+        thresholdDb: Float,
+        ratio: Float,
+        makeup: Float
+    ): Float {
+        val coefficient = if (peak > envelopes[band]) attack[band] else release[band]
+        envelopes[band] = coefficient * envelopes[band] + (1f - coefficient) * peak
+        val levelDb = 20f * kotlin.math.log10(envelopes[band].coerceAtLeast(1e-6f))
+        val overDb = levelDb - thresholdDb
+        val reductionDb = if (overDb > 0f) overDb * (1f - 1f / ratio) else 0f
+        return 10f.pow(-reductionDb / 20f) * makeup
     }
 }
