@@ -67,6 +67,8 @@ internal object PlaybackEffects {
     const val SESSION_PRE_LIMITER_PEAK = "audio_pre_limiter_peak"
     const val SESSION_PRE_LIMITER_RMS_DB = "audio_pre_limiter_rms_db"
     const val SESSION_OUTPUT_RMS_DB = "audio_output_rms_db"
+    const val SESSION_MOMENTARY_LUFS = "audio_momentary_lufs"
+    const val SESSION_INTEGRATED_LUFS = "audio_integrated_lufs"
     const val EXTRA_LIMITER_RELEASE = "limiter_release_ms"
     const val SESSION_VISUALIZER_MODE = "audio_visualizer_mode"
     const val SESSION_WAVEFORM = "audio_visualizer_waveform"
@@ -359,6 +361,8 @@ class PlaybackService : MediaSessionService() {
         putFloat(PlaybackEffects.SESSION_PRE_LIMITER_PEAK, meter.preLimiterPeak)
         putFloat(PlaybackEffects.SESSION_PRE_LIMITER_RMS_DB, meter.preLimiterRmsDb)
         putFloat(PlaybackEffects.SESSION_OUTPUT_RMS_DB, meter.outputRmsDb)
+        putFloat(PlaybackEffects.SESSION_MOMENTARY_LUFS, meter.momentaryLufs)
+        putFloat(PlaybackEffects.SESSION_INTEGRATED_LUFS, meter.integratedLufs)
         putString(PlaybackEffects.SESSION_VISUALIZER_MODE, audioEngine.visualizerMode)
         if (player.isPlaying && audioEngine.visualizerMode != "OFF") {
             val visualizer = audioEngine.visualizerFrame()
