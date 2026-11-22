@@ -62,7 +62,7 @@ internal fun PlaylistLibraryScreen(
             if (playlist == null) TextButton(onClick = { name = ""; dialog = "create" }) { Text("＋ Criar") }
             else {
                 TextButton(onClick = { onChooseArtwork(playlist.id) }) { Text("Capa") }
-                TextButton(onClick = { onPlay(playlist.id) }) { Text("Tocar") }
+                TextButton(onClick = { onPlay(playlist.id) }, enabled = playlist.songIds.any { id -> songs.any { it.id == id } }) { Text("Tocar") }
                 TextButton(onClick = { onShuffle(playlist.id) }, enabled = playlist.songIds.any { id -> songs.any { it.id == id } }) { Text("⤨ Aleatório") }
                 TextButton(onClick = { adding = true; selectedIds = emptySet() }) { Text("＋ Faixas") }
             }
@@ -91,7 +91,11 @@ internal fun PlaylistLibraryScreen(
                 }
             }
         } else {
-            val rows = playlist.songIds.mapNotNull { id -> songs.firstOrNull { it.id == id } }
+            // Keep the original playlist index alongside each available song. Filtering missing
+            // MediaStore entries must not shift the indices used by repository reorder operations.
+            val rows = playlist.songIds.mapIndexedNotNull { playlistIndex, id ->
+                songs.firstOrNull { it.id == id }?.let { playlistIndex to it }
+            }
             if (rows.isEmpty()) Column(Modifier.fillMaxSize()) {
                 EmptyPanel(if (playlist.songIds.isEmpty()) "Playlist vazia" else "Faixas indisponíveis", if (playlist.songIds.isEmpty()) "Adicione músicas locais para começar." else "As faixas salvas não estão disponíveis no dispositivo. Elas continuam registradas na playlist.", "＋ Adicionar músicas", { adding = true }, Modifier.padding(20.dp))
                 playlist.songIds.forEach { missingId ->
@@ -102,18 +106,22 @@ internal fun PlaylistLibraryScreen(
                 }
             }
             else LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                items(rows, key = { it.id }) { song ->
-                    val index = rows.indexOfFirst { it.id == song.id }
+                items(rows, key = { it.second.id }) { (playlistIndex, song) ->
+                    val visibleIndex = rows.indexOfFirst { it.second.id == song.id }
                     var travel by remember(song.id) { mutableFloatStateOf(0f) }
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onPlayTrack(rows, index, "PLAYLIST", playlist.id) }
-                        .pointerInput(song.id, rows.size) {
-                            detectDragGesturesAfterLongPress(onDrag = { change, amount ->
-                                change.consume(); travel += amount.y
-                                val threshold = 48.dp.toPx()
-                                if (travel > threshold && index < rows.lastIndex) { onReorderSong(playlist.id, index, index + 1); travel = 0f }
-                                else if (travel < -threshold && index > 0) { onReorderSong(playlist.id, index, index - 1); travel = 0f }
-                            }, onDragEnd = { travel = 0f }, onDragCancel = { travel = 0f })
-                        }.padding(7.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable {
+                        onPlayTrack(rows.map { it.second }, visibleIndex, "PLAYLIST", playlist.id)
+                    }.pointerInput(song.id, rows.size) {
+                        detectDragGesturesAfterLongPress(onDrag = { change, amount ->
+                            change.consume(); travel += amount.y
+                            val threshold = 48.dp.toPx()
+                            if (travel > threshold && visibleIndex < rows.lastIndex) {
+                                onReorderSong(playlist.id, playlistIndex, rows[visibleIndex + 1].first); travel = 0f
+                            } else if (travel < -threshold && visibleIndex > 0) {
+                                onReorderSong(playlist.id, playlistIndex, rows[visibleIndex - 1].first); travel = 0f
+                            }
+                        }, onDragEnd = { travel = 0f }, onDragCancel = { travel = 0f })
+                    }.padding(7.dp), verticalAlignment = Alignment.CenterVertically) {
                         Artwork(song.artworkUri, Modifier.size(48.dp), song.title)
                         Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
                             Text(song.title, color = if (song.id == currentSongId && playing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -140,7 +148,7 @@ internal fun PlaylistLibraryScreen(
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = { onQueue(playlist.id) }) { Text("Adicionar à fila") }
+                TextButton(onClick = { onQueue(playlist.id) }, enabled = playlist.songIds.any { id -> songs.any { it.id == id } }) { Text("Adicionar à fila") }
                 TextButton(onClick = { deleteConfirm = playlist.id }) { Text("Excluir playlist") }
             }
         }
