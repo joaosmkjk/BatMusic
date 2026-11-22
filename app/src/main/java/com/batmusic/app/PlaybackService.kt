@@ -48,6 +48,7 @@ internal object PlaybackEffects {
     const val EXTRA_BAT_BOOST = "bat_boost"
     const val EXTRA_PREAMP_DB = "preamp_db_float"
     const val EXTRA_COMPRESSOR_ENABLED = "compressor_enabled"
+    const val EXTRA_MULTIBAND_ENABLED = "multiband_enabled"
     const val EXTRA_COMPRESSOR_THRESHOLD = "compressor_threshold_db"
     const val EXTRA_COMPRESSOR_RATIO = "compressor_ratio"
     const val EXTRA_COMPRESSOR_ATTACK = "compressor_attack_ms"
@@ -129,6 +130,7 @@ class PlaybackService : MediaSessionService() {
     private var bassStrength = 0
     private var preampDb = 0f
     private var compressorEnabled = false
+    private var multibandEnabled = false
     private var limiterReleaseMs = 120f
     private var compressorThresholdDb = -12f
     private var compressorRatio = 3f
@@ -208,6 +210,7 @@ class PlaybackService : MediaSessionService() {
             bassStrength = args.getInt(PlaybackEffects.EXTRA_BASS_STRENGTH, bassStrength).coerceIn(0, 1000)
             preampDb = args.getFloat(PlaybackEffects.EXTRA_PREAMP_DB, preampDb).coerceIn(0f, 24f)
             compressorEnabled = args.getBoolean(PlaybackEffects.EXTRA_COMPRESSOR_ENABLED, compressorEnabled)
+            multibandEnabled = args.getBoolean(PlaybackEffects.EXTRA_MULTIBAND_ENABLED, multibandEnabled)
             compressorThresholdDb = args.getFloat(PlaybackEffects.EXTRA_COMPRESSOR_THRESHOLD, compressorThresholdDb).coerceIn(-36f, 0f)
             compressorRatio = args.getFloat(PlaybackEffects.EXTRA_COMPRESSOR_RATIO, compressorRatio).coerceIn(1f, 12f)
             compressorAttackMs = args.getFloat(PlaybackEffects.EXTRA_COMPRESSOR_ATTACK, compressorAttackMs).coerceIn(1f, 100f)
@@ -340,7 +343,8 @@ class PlaybackService : MediaSessionService() {
             compressorAttackMs = compressorAttackMs,
             compressorReleaseMs = compressorReleaseMs,
             compressorMakeupDb = compressorMakeupDb,
-            limiterReleaseMs = limiterReleaseMs
+            limiterReleaseMs = limiterReleaseMs,
+            multibandEnabled = multibandEnabled
         ))
     }
 
@@ -387,6 +391,7 @@ class PlaybackService : MediaSessionService() {
         bassStrength = preferences.getInt("bass_strength", 0).coerceIn(0, 1000)
         preampDb = preferences.getFloat("preamp_db_float", preferences.getInt("preamp_db", 0).toFloat()).coerceIn(0f, 24f)
         compressorEnabled = preferences.getBoolean("compressor_enabled", false)
+        multibandEnabled = preferences.getBoolean("multiband_enabled", false)
         limiterReleaseMs = preferences.getFloat("limiter_release_ms", 120f).coerceIn(20f, 1_000f)
         compressorThresholdDb = preferences.getFloat("compressor_threshold", -12f).coerceIn(-36f, 0f)
         compressorRatio = preferences.getFloat("compressor_ratio", 3f).coerceIn(1f, 12f)
@@ -414,6 +419,7 @@ class PlaybackService : MediaSessionService() {
             .putInt("bass_strength", bassStrength)
             .putFloat("preamp_db_float", preampDb)
             .putBoolean("compressor_enabled", compressorEnabled)
+            .putBoolean("multiband_enabled", multibandEnabled)
             .putFloat("limiter_release_ms", limiterReleaseMs)
             .putFloat("compressor_threshold", compressorThresholdDb)
             .putFloat("compressor_ratio", compressorRatio)
