@@ -820,6 +820,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         preampDb = 0f
+        multibandEnabled = false
         when (name) {
             "Flat", "Original / Flat" -> {
                 equalizerEnabled = false
@@ -884,6 +885,8 @@ class MainActivity : ComponentActivity() {
                 compressorRelease = 180f
                 compressorMakeup = 3f
                 limiterRelease = 90f
+                // Add gentle three-band density for BATLOUD; the true-peak limiter remains active.
+                multibandEnabled = true
             }
             "Custom" -> Unit
             "Alternative / Indie" -> {
