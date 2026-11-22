@@ -382,7 +382,7 @@ private fun HomeScreen(
     homePanelUri: String?, immersiveHome: Boolean, homePanelHeight: Float, homePanelOpacity: Float,
     homePanelOverlay: Float, homePanelRadius: Float, homePanelCrop: Boolean, onChooseHomePanel: () -> Unit
 ) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AvatarMark(avatarUri, Modifier.size(48.dp), avatarCircular, avatarZoom, avatarX, avatarY)
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
@@ -391,7 +391,7 @@ private fun HomeScreen(
             }
             RoundAction("⚙", "Configurações", onOpenSettings)
         }
-        Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(homePanelRadius.dp)).background(MaterialTheme.colorScheme.surface)
+        Box(Modifier.fillMaxWidth().height((homePanelHeight * if (immersiveHome) 1f else 0.72f).coerceIn(160f, 620f).dp).clip(RoundedCornerShape(homePanelRadius.dp)).background(MaterialTheme.colorScheme.surface)
             .then(if (homePanelUri != null) Modifier.clickable(onClick = onChooseHomePanel) else Modifier)) {
             if (homePanelUri != null) {
                 Artwork(Uri.parse(homePanelUri), Modifier.fillMaxSize(), "Imagem principal da Home", alpha = homePanelOpacity,
