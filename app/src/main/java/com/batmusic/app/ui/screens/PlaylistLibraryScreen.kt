@@ -103,7 +103,7 @@ internal fun PlaylistLibraryScreen(
                         }
                     }
                 } else {
-                    val tracks = (folders[selectedFolder] ?: emptyList()).filter { song -> query.isBlank() || song.title.contains(query, true) || song.artist.contains(query, true) || song.album.contains(query, true) }
+                    val tracks = (folders[selectedFolder.orEmpty()] ?: emptyList()).filter { song -> query.isBlank() || song.title.contains(query, true) || song.artist.contains(query, true) || song.album.contains(query, true) }
                     Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = { onPlayFolder(tracks, false) }, enabled = tracks.isNotEmpty()) { Text("Tocar pasta") }
                         TextButton(onClick = { onPlayFolder(tracks, true) }, enabled = tracks.isNotEmpty()) { Text("Adicionar à fila") }
