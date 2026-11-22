@@ -59,7 +59,7 @@ import com.batmusic.app.theme.ThemeManager
 import kotlin.math.roundToInt
 import android.widget.Toast
 
-private val librarySections = listOf("Playlists")
+private val librarySections = listOf("Playlists", "Pastas", "Favoritos", "Histórico")
 private val audioPresets = listOf("Original / Flat", "Rock", "Metal", "Classical", "Electronic", "Vocal", "BATLOUD", "Custom")
 private val LocalBatAnimations = staticCompositionLocalOf { true }
 private val LocalBatAnimationSpeed = staticCompositionLocalOf { 1f }
@@ -411,11 +411,54 @@ private fun HomeScreen(
         if (!hasPermission) {
             EmptyPanel("Sua biblioteca começa aqui", "Permita o acesso às músicas para montar suas playlists.", "Conceder acesso", onRequestPermission)
         } else {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Playlists", "Pastas", "Favoritos", "Histórico").forEach { destination ->
+                    AssistChip(
+                        onClick = { onOpenLibrary(destination) },
+                        label = { Text(destination) },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            labelColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    )
+                }
+            }
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface).clickable { onOpenLibrary("Playlists") }.padding(20.dp)) {
                 Text("SUA MÚSICA, SUAS PLAYLISTS", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                 Text("Organize e reproduza sua coleção", color = MaterialTheme.colorScheme.onBackground, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
                 Text("${songs.size} faixas locais disponíveis", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
                 TextButton(onClick = { onOpenLibrary("Playlists") }, modifier = Modifier.padding(top = 8.dp)) { Text("ABRIR PLAYLISTS  →") }
+            }
+            val recentTracks = history.take(5).mapNotNull { id -> songs.firstOrNull { it.second.id == id } }
+            if (recentTracks.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("CONTINUE OUVINDO", color = MaterialTheme.colorScheme.onBackground, fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp)
+                            Text("Suas últimas faixas", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        }
+                        TextButton(onClick = { onOpenLibrary("Histórico") }) { Text("VER TUDO") }
+                    }
+                    recentTracks.forEach { (index, song) ->
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .clickable { onPlaySong(index) }
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Artwork(song.artworkUri, Modifier.size(44.dp).clip(RoundedCornerShape(5.dp)), song.title)
+                            Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                                Text(song.title, color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(song.artist, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Text("▶", color = MaterialTheme.colorScheme.primary, fontSize = 15.sp)
+                        }
+                    }
+                }
             }
         }
     }
@@ -434,6 +477,7 @@ private fun LibraryScreen(
     val byId = remember(allSongs) { allSongs.withIndex().associate { it.value.id to it.index } }
     val filtered = when (section) {
         "Favoritos" -> songs.filter { it.second.id in favorites }
+        "Histórico" -> songs.filter { it.second.id in history }.sortedBy { history.indexOf(it.second.id) }
         else -> songs
     }
     Column(Modifier.fillMaxSize()) {
@@ -460,6 +504,7 @@ private fun LibraryScreen(
         } else if (filtered.isEmpty()) {
             when (section) {
                 "Favoritos" -> EmptyPanel("Sem favoritos", "Marque músicas com o coração para guardá-las aqui.", "Ver pastas", { onSection("Pastas") }, Modifier.padding(20.dp))
+                "Histórico" -> EmptyPanel("Nada por aqui ainda", "As faixas tocadas aparecerão nesta lista para você retomar rapidamente.", "Ver playlists", { onSection("Playlists") }, Modifier.padding(20.dp))
                 else -> EmptyPanel("Nenhuma música encontrada", if (query.isBlank()) "Atualize a biblioteca para reler o MediaStore." else "Nenhum resultado para essa busca.", "Atualizar biblioteca", onRefresh, Modifier.padding(20.dp))
             }
         } else {
