@@ -94,7 +94,7 @@ object BatAudioBaselineHarness {
     }
 
     private fun measureBypassBitExact(): Boolean {
-        val processor = configuredProcessor(BatAudioSettings(enabled = false), 48_000)
+        val processor = configuredProcessor(BatAudioSettings(enabled = false, limiterEnabled = false), 48_000)
         // Finite PCM samples must remain bit-exact in the disabled-processing path.
         // Non-finite float payloads are intentionally sanitized to +0 before bypass.
         val bits = intArrayOf(0x00000000, 0x80000000.toInt(), 0x3eaaaaab, 0xbf123456.toInt(), 0x7fc01234)
@@ -111,7 +111,7 @@ object BatAudioBaselineHarness {
     }
 
     private fun measurePcm16BypassBitExact(): Boolean {
-        val processor = configuredProcessor(BatAudioSettings(enabled = false), 48_000, encoding = C.ENCODING_PCM_16BIT)
+        val processor = configuredProcessor(BatAudioSettings(enabled = false, limiterEnabled = false), 48_000, encoding = C.ENCODING_PCM_16BIT)
         val values = shortArrayOf(Short.MIN_VALUE, -12345, -1, 0, 1, 23456, Short.MAX_VALUE)
         val input = ByteBuffer.allocateDirect(values.size * 2).order(ByteOrder.nativeOrder())
         values.forEach(input::putShort)
