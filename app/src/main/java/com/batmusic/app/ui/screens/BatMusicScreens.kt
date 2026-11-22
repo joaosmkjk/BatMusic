@@ -84,7 +84,7 @@ fun BatMusicApp(
     equalizerEnabled: Boolean, bassBoostEnabled: Boolean, bassBoostStrength: Int,
     equalizerGains: List<Int>, equalizerSupported: Boolean, bassBoostSupported: Boolean,
     effectStatus: String, preampDb: Float,
-    compressorEnabled: Boolean, compressorThreshold: Float, compressorRatio: Float,
+    compressorEnabled: Boolean, multibandEnabled: Boolean, compressorThreshold: Float, compressorRatio: Float,
     compressorAttack: Float, compressorRelease: Float, compressorMakeup: Float, limiterRelease: Float,
     outputPeak: Float, limiterActive: Boolean, clippingBlocks: Long,
     limiterGainReductionDb: Float, compressorGainReductionDb: Float,
@@ -105,7 +105,8 @@ fun BatMusicApp(
     onBassBoostStrengthChange: (Int) -> Unit, onEqualizerGainChange: (Int, Int) -> Unit,
     onApplyPreset: (String) -> Unit, onSaveAudioPreset: (String) -> Boolean,
     onDeleteAudioPreset: (String) -> Unit, onPreampChange: (Float) -> Unit,
-    onCompressorEnabledChange: (Boolean) -> Unit, onCompressorThresholdChange: (Float) -> Unit,
+    onCompressorEnabledChange: (Boolean) -> Unit, onMultibandEnabledChange: (Boolean) -> Unit,
+    onCompressorThresholdChange: (Float) -> Unit,
     onCompressorRatioChange: (Float) -> Unit, onCompressorAttackChange: (Float) -> Unit,
     onCompressorReleaseChange: (Float) -> Unit, onCompressorMakeupChange: (Float) -> Unit,
     onLimiterReleaseChange: (Float) -> Unit,
@@ -242,14 +243,16 @@ fun BatMusicApp(
                     onEqEnabled = onEqualizerEnabledChange, onGain = onEqualizerGainChange,
                     onBassEnabled = onBassBoostEnabledChange, onBassStrength = onBassBoostStrengthChange,
                     onPreGain = onPreampChange,
-                    compressorEnabled = compressorEnabled, threshold = compressorThreshold, ratio = compressorRatio,
+                    compressorEnabled = compressorEnabled, multibandEnabled = multibandEnabled,
+                    threshold = compressorThreshold, ratio = compressorRatio,
                     attack = compressorAttack, release = compressorRelease, makeup = compressorMakeup,
                     peak = outputPeak, limiterActive = limiterActive, clippingBlocks = clippingBlocks,
                     limiterGainReductionDb = limiterGainReductionDb, compressorGainReductionDb = compressorGainReductionDb,
                     preLimiterPeak = preLimiterPeak, preLimiterRmsDb = preLimiterRmsDb, outputRmsDb = outputRmsDb,
                     momentaryLufs = momentaryLufs, integratedLufs = integratedLufs,
                     limiterRelease = limiterRelease,
-                    onCompressorEnabled = onCompressorEnabledChange, onThreshold = onCompressorThresholdChange,
+                    onCompressorEnabled = onCompressorEnabledChange, onMultibandEnabled = onMultibandEnabledChange,
+                    onThreshold = onCompressorThresholdChange,
                     onRatio = onCompressorRatioChange, onAttack = onCompressorAttackChange,
                     onRelease = onCompressorReleaseChange, onMakeup = onCompressorMakeupChange,
                     onLimiterRelease = onLimiterReleaseChange
@@ -538,12 +541,13 @@ private fun BatAudioScreen(
     onBoost: (Int) -> Unit, onPreset: (String) -> Unit, onEqEnabled: (Boolean) -> Unit,
     onGain: (Int, Int) -> Unit, onBassEnabled: (Boolean) -> Unit,
     onBassStrength: (Int) -> Unit, onPreGain: (Float) -> Unit,
-    compressorEnabled: Boolean, threshold: Float, ratio: Float, attack: Float, release: Float, makeup: Float,
+    compressorEnabled: Boolean, multibandEnabled: Boolean, threshold: Float, ratio: Float, attack: Float, release: Float, makeup: Float,
     limiterRelease: Float, peak: Float, limiterActive: Boolean, clippingBlocks: Long,
     limiterGainReductionDb: Float, compressorGainReductionDb: Float,
     preLimiterPeak: Float, preLimiterRmsDb: Float, outputRmsDb: Float,
     momentaryLufs: Float, integratedLufs: Float,
-    onCompressorEnabled: (Boolean) -> Unit, onThreshold: (Float) -> Unit, onRatio: (Float) -> Unit,
+    onCompressorEnabled: (Boolean) -> Unit, onMultibandEnabled: (Boolean) -> Unit,
+    onThreshold: (Float) -> Unit, onRatio: (Float) -> Unit,
     onAttack: (Float) -> Unit, onRelease: (Float) -> Unit, onMakeup: (Float) -> Unit,
     onLimiterRelease: (Float) -> Unit
 ) {
@@ -643,6 +647,18 @@ private fun BatAudioScreen(
                     FloatSliderRow("Attack", attack, " ms", 1f..100f, 98, enabled && compressorEnabled, onAttack)
                     FloatSliderRow("Release", release, " ms", 10f..1_000f, 197, enabled && compressorEnabled, onRelease)
                     FloatSliderRow("Makeup", makeup, " dB", -12f..12f, 47, enabled && compressorEnabled, onMakeup)
+                }
+            }
+            item {
+                PanelCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("BAT DYNAMICS • 3 BANDAS", color = MaterialTheme.colorScheme.onBackground, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Graves, médios e agudos com detecção independente", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        }
+                        Switch(checked = multibandEnabled, onCheckedChange = onMultibandEnabled, enabled = enabled)
+                    }
+                    Text("Crossovers complementares em 250 Hz e 4 kHz. O BATLIMITER continua responsável pelos picos.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                 }
             }
             item {
