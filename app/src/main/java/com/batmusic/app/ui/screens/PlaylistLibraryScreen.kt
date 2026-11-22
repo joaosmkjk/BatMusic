@@ -30,8 +30,9 @@ internal fun PlaylistLibraryScreen(
     onReorderSong: (String, Int, Int) -> Unit, onPlay: (String) -> Unit, onShuffle: (String) -> Unit,
     onPlayTrack: (List<Song>, Int, String, String) -> Unit, onQueue: (String) -> Unit,
     onChooseArtwork: (String) -> Unit, onPlayFolder: (List<Song>, Boolean) -> Unit,
-    folderArtwork: Map<String, String>, onChooseFolderArtwork: (String) -> Unit,
-    onChooseSongArtwork: (Long) -> Unit
+    folderArtwork: Map<String, String>, favorites: Set<Long>, history: List<Long>,
+    onToggleFavorite: (Long) -> Unit, onClearHistory: () -> Unit,
+    onChooseFolderArtwork: (String) -> Unit, onChooseSongArtwork: (Long) -> Unit
 ) {
     var selected by remember { mutableStateOf<String?>(null) }
     var section by remember { mutableStateOf("Playlists") }
@@ -67,11 +68,13 @@ internal fun PlaylistLibraryScreen(
                 Spacer(Modifier.width(9.dp))
             }
             Column(Modifier.weight(1f)) {
-                Text(playlist?.name ?: selectedFolder?.substringAfterLast('/')?.ifBlank { "Armazenamento" } ?: when (section) { "Pastas" -> "Pastas"; "Todas" -> "Todas as músicas"; else -> "Biblioteca" }, color = MaterialTheme.colorScheme.onBackground, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(playlist?.name ?: selectedFolder?.substringAfterLast('/')?.ifBlank { "Armazenamento" } ?: when (section) { "Pastas" -> "Pastas"; "Todas" -> "Todas as músicas"; "Favoritos" -> "Favoritos"; "Histórico" -> "Histórico"; else -> "Biblioteca" }, color = MaterialTheme.colorScheme.onBackground, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val availableCount = playlist?.songIds?.count { id -> songs.any { it.id == id } } ?: 0
-                Text(if (playlist != null) availableCount.toString() + " de " + playlist.songIds.size + " faixas disponíveis" else if (section == "Pastas") folders.size.toString() + " pastas • " + songs.size + " faixas" else if (section == "Todas") filteredSongs.size.toString() + " faixas encontradas" else "Sua coleção pessoal", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                val sectionCount = when (section) { "Pastas" -> folders.size.toString() + " pastas • " + songs.size + " faixas"; "Todas" -> filteredSongs.size.toString() + " faixas"; "Favoritos" -> filteredSongs.count { it.id in favorites }.toString() + " favoritas"; "Histórico" -> filteredSongs.count { it.id in history }.toString() + " faixas recentes"; else -> "Sua coleção pessoal" }
+                Text(if (playlist != null) availableCount.toString() + " de " + playlist.songIds.size + " faixas disponíveis" else sectionCount, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
             }
-            if (playlist == null) TextButton(onClick = { name = ""; dialog = "create" }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("＋") }
+            if (playlist == null && section == "Histórico" && history.isNotEmpty()) TextButton(onClick = onClearHistory, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Limpar") }
+            if (playlist == null && section == "Playlists") TextButton(onClick = { name = ""; dialog = "create" }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("＋") }
         }
         if (playlist != null) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -83,11 +86,11 @@ internal fun PlaylistLibraryScreen(
         }
         if (playlist == null) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Playlists", "Pastas", "Todas").forEach { tab ->
+                listOf("Playlists", "Pastas", "Todas", "Favoritos", "Histórico").forEach { tab ->
                     FilterChip(selected = section == tab, onClick = { section = tab; selectedFolder = null; query = "" }, label = { Text(tab) })
                 }
             }
-            if (section != "Playlists") {
+            if (section != "Playlists" && section != "Pastas") {
                 OutlinedTextField(value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     singleLine = true, placeholder = { Text("Buscar música, artista, álbum ou pasta") })
             }
@@ -128,15 +131,23 @@ internal fun PlaylistLibraryScreen(
                         }
                     }
                 }
-            } else if (section == "Todas") {
+            } else if (section == "Todas" || section == "Favoritos" || section == "Histórico") {
+                val sectionTracks = when (section) {
+                    "Favoritos" -> filteredSongs.filter { it.id in favorites }
+                    "Histórico" -> filteredSongs.filter { it.id in history }.sortedBy { history.indexOf(it.id) }
+                    else -> filteredSongs
+                }
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-                    items(filteredSongs, key = { it.id }) { song ->
-                        Row(Modifier.fillMaxWidth().clickable { onPlayTrack(filteredSongs, filteredSongs.indexOfFirst { it.id == song.id }, "LIBRARY", "all") }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    items(sectionTracks, key = { it.id }) { song ->
+                        Row(Modifier.fillMaxWidth().clickable {
+                            onPlayTrack(sectionTracks, sectionTracks.indexOfFirst { it.id == song.id }, "LIBRARY", section.lowercase())
+                        }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Artwork(song.artworkUri, Modifier.size(46.dp), song.title)
                             Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
                                 Text(song.title, color = if (song.id == currentSongId && playing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(song.artist + " • " + song.album, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
+                            if (section == "Favoritos") TextButton(onClick = { onToggleFavorite(song.id) }) { Text("♥") }
                             TextButton(onClick = { onChooseSongArtwork(song.id) }) { Text("Capa") }
                         }
                     }
