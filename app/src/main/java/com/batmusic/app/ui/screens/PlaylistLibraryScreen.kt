@@ -25,6 +25,7 @@ import com.batmusic.app.ui.components.Artwork
 @Composable
 internal fun PlaylistLibraryScreen(
     playlists: List<LocalPlaylist>, songs: List<Song>, currentSongId: Long?, playing: Boolean,
+    initialSection: String = "Playlists",
     onCreate: (String) -> Boolean, onRename: (String, String) -> Boolean, onDelete: (String) -> Unit,
     onAddSongs: (String, List<Long>) -> Unit, onRemoveSong: (String, Long) -> Unit,
     onReorderSong: (String, Int, Int) -> Unit, onPlay: (String) -> Unit, onShuffle: (String) -> Unit,
@@ -35,7 +36,7 @@ internal fun PlaylistLibraryScreen(
     onChooseFolderArtwork: (String) -> Unit, onChooseSongArtwork: (Long) -> Unit
 ) {
     var selected by remember { mutableStateOf<String?>(null) }
-    var section by remember { mutableStateOf("Playlists") }
+    var section by remember(initialSection) { mutableStateOf(initialSection) }
     var selectedFolder by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
     val folders = remember(songs) { songs.groupBy { it.folderPath }.toSortedMap() }
@@ -140,7 +141,7 @@ internal fun PlaylistLibraryScreen(
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                     items(sectionTracks, key = { it.id }) { song ->
                         Row(Modifier.fillMaxWidth().clickable {
-                            onPlayTrack(sectionTracks, sectionTracks.indexOfFirst { it.id == song.id }, "LIBRARY", section.lowercase())
+                            onPlayTrack(sectionTracks, sectionTracks.indexOfFirst { it.id == song.id }, "LIBRARY", "all")
                         }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Artwork(song.artworkUri, Modifier.size(46.dp), song.title)
                             Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
