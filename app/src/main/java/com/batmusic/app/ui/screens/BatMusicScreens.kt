@@ -311,7 +311,8 @@ fun BatMusicApp(
                     onReorderSong = onReorderPlaylistSong, onPlay = onPlayPlaylist,
                     onPlayTrack = onPlayContextSong, onQueue = onQueuePlaylist,
                     onShuffle = onShufflePlaylist,
-                    onChooseArtwork = onChoosePlaylistArtwork
+                    onChooseArtwork = onChoosePlaylistArtwork,
+                    onPlayFolder = onPlayFolder
                 )
                 else -> HomeScreen(
                     songs = visibleSongs, favorites = favorites, history = history,
