@@ -7,6 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.PI
 import kotlin.math.sin
+import kotlin.math.pow
 
 class OfflineTruePeakAndAbTest {
     @Test
@@ -25,6 +26,18 @@ class OfflineTruePeakAndAbTest {
             }
         }.finishDbtp()
         assertEquals(onePass, chunked, 0.0001f)
+    }
+
+    @Test
+    fun firPeakMonitorDetectsInterSamplePeakAboveSamplePeak() {
+        val samples = FloatArray(4096) { index ->
+            (0.9 * sin(2.0 * PI * 0.37 * index + 0.31)).toFloat()
+        }
+        val samplePeak = samples.maxOf { kotlin.math.abs(it) }
+        val measured = OversampledTruePeakMeter(1).apply { process(samples) }.finishDbtp()
+        val measuredLinear = 10.0.pow(measured / 20.0)
+        assertTrue("FIR oversampling should reveal inter-sample peaks", measuredLinear > samplePeak + 0.005)
+        assertTrue("The estimate must remain finite", measured.isFinite())
     }
 
     @Test
