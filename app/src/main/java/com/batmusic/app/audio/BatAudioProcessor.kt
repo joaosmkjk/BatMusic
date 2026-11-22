@@ -68,6 +68,11 @@ class BatAudioProcessor : BaseAudioProcessor() {
         private set
     val momentaryLufs: Float get() = loudnessMeter?.momentaryLufs ?: LoudnessMeter.SILENCE_LUFS
     val integratedLufs: Float get() = loudnessMeter?.integratedLufs ?: LoudnessMeter.SILENCE_LUFS
+
+    /** Starts a fresh per-track loudness measurement without disturbing playback DSP state. */
+    fun resetTrackLoudness() {
+        loudnessMeter?.reset()
+    }
     @Volatile var visualizerEnabled: Boolean = false
 
     private var channels = 0
