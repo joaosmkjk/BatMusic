@@ -77,7 +77,17 @@ class PlaylistRepository(context: Context) {
 
     private fun readStrict(): List<LocalPlaylist> {
         val primary = prefs.getString(KEY_PLAYLISTS, null)
-        if (primary == null) return emptyList()
+        if (primary == null) {
+            val backup = prefs.getString(KEY_BACKUP, null) ?: return emptyList()
+            return try {
+                parse(backup)
+            } catch (backupError: Exception) {
+                throw IllegalStateException(
+                    "Backup das playlists está corrompido; gravação bloqueada.",
+                    backupError
+                )
+            }
+        }
 
         return try {
             parse(primary)
