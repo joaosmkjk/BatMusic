@@ -144,7 +144,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
             }
         }
         outputRmsDb = if (measuredSamples > 0) (20.0 * log10(sqrt(squareSum / measuredSamples).coerceAtLeast(1e-12))).toFloat() else -120f
-        outputPeak = peak.coerceAtMost(1f)
+        // Match the live-block meter: report the measured sample peak without masking >0 dBFS.\n        outputPeak = peak
         preLimiterPeak = limiter.blockPreLimiterPeak
         preLimiterRmsDb = limiter.blockPreLimiterRmsDb
         limiterActive = limiter.blockLimited
@@ -195,8 +195,13 @@ class BatAudioProcessor : BaseAudioProcessor() {
         if (encoding == C.ENCODING_PCM_FLOAT) {
             for (index in 0 until sampleCount) {
                 val bits = input.getInt(inputStart + index * 4)
-                rawSampleBits[index] = bits
-                samples[index] = java.lang.Float.intBitsToFloat(bits)
+                val decoded = java.lang.Float.intBitsToFloat(bits)
+                // Never allow NaN/Infinity to poison the true-peak detector,
+                // RMS accumulator, or limiter gain computer. Keep the raw
+                // bypass representation consistent with the sanitized PCM.
+                val safeValue = if (decoded.isFinite()) decoded else 0f
+                samples[index] = safeValue
+                rawSampleBits[index] = java.lang.Float.floatToRawIntBits(safeValue)
             }
         } else {
             for (index in 0 until sampleCount) {
@@ -238,7 +243,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
                 writtenFrames++
             }
         }
-        outputPeak = outputBlockPeak.coerceAtMost(1f)
+        // Preserve over-range float readings so diagnostics cannot hide an unexpected overshoot.\n        outputPeak = outputBlockPeak
         outputRmsDb = if (outputSampleCount > 0) (20.0 * log10(sqrt(outputSquareSum / outputSampleCount).coerceAtLeast(1e-12))).toFloat() else -120f
         preLimiterPeak = limiter.blockPreLimiterPeak
         preLimiterRmsDb = limiter.blockPreLimiterRmsDb
