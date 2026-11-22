@@ -654,9 +654,9 @@ private fun BatAudioScreen(
                 PanelCard {
                     SectionHeading("Medição de saída", if (limiterActive) "LIMITER" else "PCM")
                     LinearProgressIndicator(progress = { peak.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceVariant)
-                    Text("Peak ${(peak * 100f).roundToInt()}%  •  limiter GR ${"%.1f".format(limiterGainReductionDb)} dB  •  compressor GR ${"%.1f".format(compressorGainReductionDb)} dB", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                    Text("Peak amostra ${(peak * 100f).roundToInt()}%  •  limiter GR ${"%.1f".format(limiterGainReductionDb)} dB  •  compressor GR ${"%.1f".format(compressorGainReductionDb)} dB", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                     Text("RMS pré-limiter ${"%.1f".format(preLimiterRmsDb)} dBFS  •  RMS saída ${"%.1f".format(outputRmsDb)} dBFS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                    Text("Pico pré-limiter ${(preLimiterPeak * 100f).roundToInt()}%  •  ${if (limiterActive) "Limiter atuando" else "Limiter em repouso"}  •  blocos limitados: $clippingBlocks", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                    Text("Pico de amostra pré-limiter ${(preLimiterPeak * 100f).roundToInt()}%  •  ${if (limiterActive) "Limiter atuando" else "Limiter em repouso"}  •  blocos limitados: $clippingBlocks", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                 }
             }
             item {

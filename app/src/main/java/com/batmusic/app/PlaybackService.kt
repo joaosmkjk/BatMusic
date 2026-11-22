@@ -326,6 +326,7 @@ class PlaybackService : MediaSessionService() {
     private fun applyEffects() {
         audioEngine.configure(BatAudioSettings(
             enabled = batAudioEnabled && !audioABOriginal,
+            limiterEnabled = !audioABOriginal,
             batBoost = batBoost,
             equalizerEnabled = equalizerEnabled,
             bandGainsDb = bandGainsTenthDb.map { it / 10f },
