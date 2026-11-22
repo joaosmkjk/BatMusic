@@ -69,9 +69,9 @@ class BatAudioProcessor : BaseAudioProcessor() {
     val momentaryLufs: Float get() = loudnessMeter?.momentaryLufs ?: LoudnessMeter.SILENCE_LUFS
     val integratedLufs: Float get() = loudnessMeter?.integratedLufs ?: LoudnessMeter.SILENCE_LUFS
 
-    /** Starts a fresh per-track loudness measurement without disturbing playback DSP state. */
+    /** Requests a per-track reset; the audio thread applies it at the next PCM block boundary. */
     fun resetTrackLoudness() {
-        loudnessMeter?.reset()
+        trackLoudnessResetPending = true
     }
     @Volatile var visualizerEnabled: Boolean = false
 
@@ -86,6 +86,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
     private var outputBypassed = BooleanArray(0)
     private var truePeakLimiter: LookaheadTruePeakLimiter? = null
     private var loudnessMeter: LoudnessMeter? = null
+    @Volatile private var trackLoudnessResetPending = false
     private var multibandDynamics: MultibandDynamics? = null
     private var configuredEncoding = C.ENCODING_INVALID
     private var appliedSettings: BatAudioSettings? = null
@@ -129,6 +130,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
         outputRmsDb = -120f
         truePeakLimiter?.reset()
         loudnessMeter?.reset()
+        trackLoudnessResetPending = false
         multibandDynamics?.reset()
         appliedSettings = null
     }
@@ -178,6 +180,10 @@ class BatAudioProcessor : BaseAudioProcessor() {
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         if (!inputBuffer.hasRemaining()) return
+        if (trackLoudnessResetPending) {
+            loudnessMeter?.reset()
+            trackLoudnessResetPending = false
+        }
         val input = inputBuffer.order(ByteOrder.nativeOrder())
         val byteCount = input.remaining()
         val config = settings
