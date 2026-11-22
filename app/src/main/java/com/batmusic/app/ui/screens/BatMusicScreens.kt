@@ -320,6 +320,8 @@ fun BatMusicApp(
                     onShuffle = onShufflePlaylist,
                     onChooseArtwork = onChoosePlaylistArtwork,
                     onPlayFolder = onPlayFolder, folderArtwork = folderArtwork,
+                    favorites = favorites, history = history,
+                    onToggleFavorite = onToggleFavorite, onClearHistory = onClearHistory,
                     onChooseFolderArtwork = onChooseFolderArtwork, onChooseSongArtwork = onChooseSongArtwork
                 )
                 else -> HomeScreen(
