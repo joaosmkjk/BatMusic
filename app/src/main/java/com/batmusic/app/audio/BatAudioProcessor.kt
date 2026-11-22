@@ -75,6 +75,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
     private var outputRawBits = IntArray(0)
     private var outputBypassed = BooleanArray(0)
     private var truePeakLimiter: LookaheadTruePeakLimiter? = null
+    private var loudnessMeter: LoudnessMeter? = null
     private var configuredEncoding = C.ENCODING_INVALID
     private var appliedSettings: BatAudioSettings? = null
     private var filters = emptyArray<Pair<Int, Coefficients>>()
@@ -94,6 +95,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
         truePeakLimiter = if (formatSupported) {
             LookaheadTruePeakLimiter(sampleRate, channels, TRUE_PEAK_CEILING, marginDb = 0.5f, lookaheadMs = 5f, releaseMs = settings.limiterReleaseMs)
         } else null
+        loudnessMeter = if (formatSupported) LoudnessMeter(sampleRate, channels) else null
         val initialOutputSamples = (truePeakLimiter?.latencyFrames ?: 0) * channels
         outputSamples = FloatArray(initialOutputSamples)
         outputRawBits = IntArray(initialOutputSamples)
@@ -114,6 +116,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
         preLimiterRmsDb = -120f
         outputRmsDb = -120f
         truePeakLimiter?.reset()
+        loudnessMeter?.reset()
         appliedSettings = null
     }
 
@@ -146,6 +149,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
             }
         }
         outputRmsDb = if (measuredSamples > 0) (20.0 * log10(sqrt(squareSum / measuredSamples).coerceAtLeast(1e-12))).toFloat() else -120f
+        loudnessMeter?.process(outputSamples, drainedFrames)
         // Match the live-block meter: report the measured sample peak without masking >0 dBFS.\n        outputPeak = peak
         preLimiterPeak = limiter.blockPreLimiterPeak
         preLimiterRmsDb = limiter.blockPreLimiterRmsDb
@@ -245,7 +249,8 @@ class BatAudioProcessor : BaseAudioProcessor() {
                 writtenFrames++
             }
         }
-        // Preserve over-range float readings so diagnostics cannot hide an unexpected overshoot.\n        outputPeak = outputBlockPeak
+        // Preserve over-range float readings so diagnostics cannot hide an unexpected overshoot.\n        loudnessMeter?.process(outputSamples, writtenFrames)
+        outputPeak = outputBlockPeak
         outputRmsDb = if (outputSampleCount > 0) (20.0 * log10(sqrt(outputSquareSum / outputSampleCount).coerceAtLeast(1e-12))).toFloat() else -120f
         preLimiterPeak = limiter.blockPreLimiterPeak
         preLimiterRmsDb = limiter.blockPreLimiterRmsDb
