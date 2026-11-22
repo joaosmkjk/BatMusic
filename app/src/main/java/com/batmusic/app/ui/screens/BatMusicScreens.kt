@@ -70,6 +70,7 @@ private val LocalBatCardRadius = staticCompositionLocalOf { 5f }
 fun BatMusicApp(
     songs: List<Song>, hasPermission: Boolean, isPlaying: Boolean, currentIndex: Int,
     currentPosition: Long, duration: Long, searchQuery: String, favorites: Set<Long>, history: List<Long>, playlists: List<LocalPlaylist>,
+    folderArtwork: Map<String, String>,
     wallpaperUri: String?, avatarUri: String?, avatarCircular: Boolean, avatarZoom: Float, avatarX: Float, avatarY: Float,
     wallpaperOpacity: Float, wallpaperDim: Float, wallpaperBlur: Float,
     homePanelUri: String?, immersiveHome: Boolean, homePanelHeight: Float, homePanelOpacity: Float,
