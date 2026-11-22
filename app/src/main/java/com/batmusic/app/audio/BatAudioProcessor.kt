@@ -90,7 +90,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
         sampleRate = inputAudioFormat.sampleRate
         configuredEncoding = inputAudioFormat.encoding
         truePeakLimiter = if (formatSupported) {
-            LookaheadTruePeakLimiter(sampleRate, channels, TRUE_PEAK_CEILING, marginDb = 0f, lookaheadMs = 5f, releaseMs = settings.limiterReleaseMs)
+            LookaheadTruePeakLimiter(sampleRate, channels, TRUE_PEAK_CEILING, marginDb = 0.5f, lookaheadMs = 5f, releaseMs = settings.limiterReleaseMs)
         } else null
         val initialOutputSamples = (truePeakLimiter?.latencyFrames ?: 0) * channels
         outputSamples = FloatArray(initialOutputSamples)
