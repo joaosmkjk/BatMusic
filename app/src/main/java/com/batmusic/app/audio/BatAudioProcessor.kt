@@ -98,6 +98,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
     private var appliedSettings: BatAudioSettings? = null
     private var filters = emptyArray<Pair<Int, Coefficients>>()
     private var compressorEnvelope = 0f
+    private val inputGainRamp = LinearGainRamp()
     private var attackCoefficient = 0f
     private var releaseCoefficient = 0f
     private val visualizerRing = FloatArray(VISUALIZER_SIZE)
@@ -129,6 +130,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
         attackCoefficient = exp(-1f / (sampleRate * 0.006f))
         releaseCoefficient = exp(-1f / (sampleRate * 0.12f))
         compressorEnvelope = 0f
+        inputGainRamp.reset()
         compressorGainReductionDb = 0f
         limiterGainReductionDb = 0f
         preLimiterPeak = 0f
@@ -320,6 +322,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
         val positiveStack = (maxEq + bassDb + preGainDb).coerceAtMost(48f)
         val headroomDb = (positiveStack - 7f).coerceAtLeast(0f) * (0.35f + amount * 0.25f)
         val inputGain = 10f.pow((preGainDb - headroomDb) / 20f)
+        inputGainRamp.setTarget(inputGain, (sampleRate * GAIN_RAMP_MS / 1_000f).toInt().coerceAtLeast(1))
         val extraMakeupDb = if (config.compressorEnabled) config.compressorMakeupDb.coerceIn(-12f, 12f) else 0f
         val makeupGain = 10f.pow((amount * 6.0206f + extraMakeupDb) / 20f)
         val threshold = 10f.pow(config.compressorThresholdDb.coerceIn(-36f, 0f) / 20f)
@@ -328,6 +331,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
 
         for (frame in 0 until frameCount) {
             val offset = frame * channels
+            val frameInputGain = inputGainRamp.next()
             var framePeak = 0f
             for (channel in 0 until channels) {
                 val sampleIndex = offset + channel
@@ -336,7 +340,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
                     value = states[channel][filterIndex].process(value, coefficients)
                 }
                 if (!value.isFinite()) value = 0f
-                value *= inputGain
+                value *= frameInputGain
                 samples[sampleIndex] = value
                 framePeak = maxOf(framePeak, abs(value))
             }
@@ -491,6 +495,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
 
     companion object {
         private const val VISUALIZER_SIZE = 4096
+        private const val GAIN_RAMP_MS = 20f
         private const val TRUE_PEAK_CEILING = 0.8912509f // -1 dBFS true-peak target
         private val BAND_HZ = floatArrayOf(31f, 62f, 125f, 250f, 500f, 1_000f, 2_000f, 4_000f, 8_000f, 16_000f)
     }
