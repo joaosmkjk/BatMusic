@@ -118,6 +118,7 @@ internal fun PlaylistLibraryScreen(
                                     Text(song.title, color = if (song.id == currentSongId && playing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(song.artist + " • " + song.album, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
+                                TextButton(onClick = { onChooseSongArtwork(song.id) }) { Text("Capa") }
                             }
                         }
                     }
