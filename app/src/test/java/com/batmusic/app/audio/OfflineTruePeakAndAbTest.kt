@@ -28,6 +28,18 @@ class OfflineTruePeakAndAbTest {
     }
 
     @Test
+    fun firPeakMonitorDetectsInterSamplePeakAboveSamplePeak() {
+        val samples = FloatArray(4096) { index ->
+            (0.9 * sin(2.0 * PI * 0.37 * index + 0.31)).toFloat()
+        }
+        val samplePeak = samples.maxOf { kotlin.math.abs(it) }
+        val measured = OversampledTruePeakMeter(1).apply { process(samples) }.finishDbtp()
+        val measuredLinear = 10.0.pow(measured / 20.0)
+        assertTrue("FIR oversampling should reveal inter-sample peaks", measuredLinear > samplePeak + 0.005)
+        assertTrue("The estimate must remain finite", measured.isFinite())
+    }
+
+    @Test
     fun peakMonitorNeverReportsBelowSamplePeak() {
         val samples = FloatArray(1024) { index ->
             (0.8 * sin(2.0 * PI * 0.41 * index + 0.2)).toFloat()
