@@ -172,7 +172,8 @@ class BatAudioProcessor : BaseAudioProcessor() {
         }
         outputRmsDb = if (measuredSamples > 0) (20.0 * log10(sqrt(squareSum / measuredSamples).coerceAtLeast(1e-12))).toFloat() else -120f
         loudnessMeter?.process(outputSamples, drainedFrames)
-        // Match the live-block meter: report the measured sample peak without masking >0 dBFS.\n        outputPeak = peak
+        // Match the live-block meter: report the measured sample peak without masking >0 dBFS.
+        outputPeak = peak
         preLimiterPeak = limiter.blockPreLimiterPeak
         preLimiterRmsDb = limiter.blockPreLimiterRmsDb
         limiterActive = limiter.blockLimited
@@ -292,7 +293,8 @@ class BatAudioProcessor : BaseAudioProcessor() {
                 writtenFrames++
             }
         }
-        // Feed every emitted PCM block to the streaming loudness meter.\n        loudnessMeter?.process(outputSamples, writtenFrames)
+        // Feed every emitted PCM block to the streaming loudness meter.
+        loudnessMeter?.process(outputSamples, writtenFrames)
         outputPeak = outputBlockPeak
         outputRmsDb = if (outputSampleCount > 0) (20.0 * log10(sqrt(outputSquareSum / outputSampleCount).coerceAtLeast(1e-12))).toFloat() else -120f
         preLimiterPeak = limiter.blockPreLimiterPeak
