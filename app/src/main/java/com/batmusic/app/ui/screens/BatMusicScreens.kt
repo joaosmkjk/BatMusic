@@ -348,7 +348,13 @@ fun BatMusicApp(
             if (!showNowPlaying && !showEqualizer && route != "Fila" && currentSong != null) {
                 MiniPlayer(
                     song = currentSong, playing = isPlaying, position = currentPosition, duration = duration,
-                    onPlayPause = onPlayPause, onNext = onNext, onOpen = onOpenNowPlaying
+                    onPlayPause = onPlayPause, onNext = onNext, onOpen = onOpenNowPlaying,
+                    onQueue = {
+                        queueReturnRoute = route
+                        queueReturnToPlayer = false
+                        onOpenQueue()
+                        route = "Fila"
+                    }
                 )
             }
             if (!showNowPlaying && !showEqualizer && route != "Fila") {
@@ -1218,7 +1224,7 @@ private fun AudioVisualizer(mode: String, waveform: FloatArray, spectrum: FloatA
 }
 
 @Composable
-private fun MiniPlayer(song: Song, playing: Boolean, position: Long, duration: Long, onPlayPause: () -> Unit, onNext: () -> Unit, onOpen: () -> Unit) {
+private fun MiniPlayer(song: Song, playing: Boolean, position: Long, duration: Long, onPlayPause: () -> Unit, onNext: () -> Unit, onOpen: () -> Unit, onQueue: () -> Unit) {
     val targetScale = if (playing) 1f else 0.94f
     val playScale = if (LocalBatAnimations.current) animateFloatAsState(targetScale, tween((180 / LocalBatAnimationSpeed.current).roundToInt()), label = "miniPlayScale").value else targetScale
     val sizeAnimation = if (LocalBatAnimations.current) Modifier.animateContentSize() else Modifier
@@ -1229,6 +1235,7 @@ private fun MiniPlayer(song: Song, playing: Boolean, position: Long, duration: L
                 Text(song.title, color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(song.artist, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            MiniControl("☷", onQueue)
             MiniControl(if (playing) "Ⅱ" else "▶", { onPlayPause() }, Modifier.scale(playScale))
             MiniControl("›|", onNext)
         }
@@ -1380,7 +1387,7 @@ private fun RoundAction(label: String, description: String, onClick: () -> Unit,
 
 @Composable
 private fun MiniControl(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier.padding(horizontal = 2.dp).size(39.dp).clip(CircleShape).background(Color(0xFF2B2525)).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(modifier.padding(horizontal = 2.dp).size(44.dp).clip(CircleShape).background(Color(0xFF2B2525)).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Text(label, color = MaterialTheme.colorScheme.secondary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
     }
 }
