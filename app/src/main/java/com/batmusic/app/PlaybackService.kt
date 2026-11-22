@@ -331,7 +331,8 @@ class PlaybackService : MediaSessionService() {
     private fun applyEffects() {
         audioEngine.configure(BatAudioSettings(
             enabled = batAudioEnabled && !audioABOriginal,
-            limiterEnabled = !audioABOriginal,
+            // A/B bypasses tone processing only; peak protection stays active in both paths.
+            limiterEnabled = true,
             batBoost = batBoost,
             equalizerEnabled = equalizerEnabled,
             bandGainsDb = bandGainsTenthDb.map { it / 10f },
