@@ -10,7 +10,9 @@ data class AudioEngineMeter(
     val compressorGainReductionDb: Float,
     val preLimiterPeak: Float,
     val preLimiterRmsDb: Float,
-    val outputRmsDb: Float
+    val outputRmsDb: Float,
+    val momentaryLufs: Float,
+    val integratedLufs: Float
 )
 data class AudioVisualizerFrame(val waveform: FloatArray, val spectrum: FloatArray)
 
@@ -39,7 +41,8 @@ class AudioEngine {
     fun meter() = AudioEngineMeter(
         processor.outputPeak, processor.limiterActive, processor.clippingBlocks,
         processor.limiterGainReductionDb, processor.compressorGainReductionDb,
-        processor.preLimiterPeak, processor.preLimiterRmsDb, processor.outputRmsDb
+        processor.preLimiterPeak, processor.preLimiterRmsDb, processor.outputRmsDb,
+        processor.momentaryLufs, processor.integratedLufs
     )
     fun visualizerFrame(): AudioVisualizerFrame {
         processor.copyVisualizerSamples(visualizerSamples)
