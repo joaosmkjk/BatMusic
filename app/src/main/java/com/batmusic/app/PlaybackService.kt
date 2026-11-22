@@ -4,6 +4,16 @@ import android.app.PendingIntent
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
+import android.provider.MediaStore
+import com.batmusic.app.audio.AndroidTrackLoudnessAnalyzer
+import com.batmusic.app.audio.LoudnessNormalizer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -103,6 +113,9 @@ class PlaybackService : MediaSessionService() {
     private lateinit var player: ExoPlayer
     private var mediaSession: MediaSession? = null
     private val audioEngine = AudioEngine()
+    private val normalizationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var normalizationJob: Job? = null
+    @Volatile private var normalizationGainDb = 0f
     private lateinit var queueStore: PlaybackQueueStore
     private val playbackQueue = PlaybackQueue()
     private var activeQueueContextType = "LIBRARY"
@@ -170,6 +183,7 @@ class PlaybackService : MediaSessionService() {
         override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
             // Integrated loudness belongs to one track, never to the whole playback session.
             audioEngine.processor.resetTrackLoudness()
+            scheduleTrackNormalization(mediaItem)
         }
 
         override fun onEvents(player: Player, events: Player.Events) {
@@ -364,8 +378,51 @@ class PlaybackService : MediaSessionService() {
             compressorReleaseMs = compressorReleaseMs,
             compressorMakeupDb = compressorMakeupDb,
             limiterReleaseMs = limiterReleaseMs,
-            multibandEnabled = multibandEnabled
+            multibandEnabled = multibandEnabled,
+            normalizationEnabled = true,
+            normalizationGainDb = normalizationGainDb
         ))
+    }
+
+
+    /**
+     * Analyze the newly selected track off the playback thread, then apply only
+     * the gain that fits both the loudness target and the measured true-peak budget.
+     * A stale result is discarded if the user has already moved to another track.
+     */
+    private fun scheduleTrackNormalization(mediaItem: androidx.media3.common.MediaItem?) {
+        normalizationJob?.cancel()
+        normalizationGainDb = 0f
+        applyEffects()
+        val uri = mediaItem?.localConfiguration?.uri ?: return
+        val durationMs = player.duration.coerceAtLeast(0L)
+        normalizationJob = normalizationScope.launch {
+            val gain = runCatching {
+                val fingerprint = withContext(Dispatchers.IO) {
+                    val metadata = contentResolver.query(
+                        uri,
+                        arrayOf(MediaStore.MediaColumns.SIZE, MediaStore.MediaColumns.DATE_MODIFIED),
+                        null, null, null
+                    )?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val sizeIndex = cursor.getColumnIndex(MediaStore.MediaColumns.SIZE)
+                            val modifiedIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DATE_MODIFIED)
+                            val size = if (sizeIndex >= 0) cursor.getLong(sizeIndex) else -1L
+                            val modified = if (modifiedIndex >= 0) cursor.getLong(modifiedIndex) else -1L
+                            "$size:$modified"
+                        } else "unknown"
+                    } ?: "unknown"
+                    "normalizer-v1|$uri|$metadata"
+                }
+                val record = AndroidTrackLoudnessAnalyzer(applicationContext)
+                    .analyze(uri, fingerprint, durationMs)
+                LoudnessNormalizer.plan(record.integratedLufs, record.truePeakDbtp)?.appliedGainDb ?: 0f
+            }.getOrDefault(0f)
+            if (player.currentMediaItem?.localConfiguration?.uri != uri) return@launch
+            normalizationGainDb = gain
+            applyEffects()
+            publishEffectStatus()
+        }
     }
 
     private fun publishEffectStatus() {
@@ -656,6 +713,8 @@ class PlaybackService : MediaSessionService() {
         meterHandler.removeCallbacks(meterPublisher)
         meterHandler.removeCallbacks(queueCheckpoint)
         meterHandler.removeCallbacks(untrustedMutationFallback)
+        normalizationJob?.cancel()
+        normalizationScope.cancel()
         player.removeListener(queueListener)
         mediaSession?.release()
         player.release()
