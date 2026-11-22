@@ -84,7 +84,38 @@ class ThemeRepository(context: Context) {
     fun themes(): Map<String, BatTheme> = runCatching {
         val json = JSONObject(prefs.getString("profiles", "{}") ?: "{}")
         buildMap { json.keys().forEach { key -> put(key, BatTheme.fromJson(json.getString(key))) } }
-    }.getOrDefault(emptyMap()).toMutableMap().apply { putIfAbsent(BatTheme.default.name, BatTheme.default) }
+    }.getOrDefault(emptyMap()).toMutableMap().apply {
+        // Shipped palettes are available immediately and remain editable/duplicable by the user.
+        putIfAbsent(BatTheme.default.name, BatTheme.default)
+        putIfAbsent("KRYPTON", BatTheme(
+            name = "KRYPTON", background = 0xFF071426, secondaryBackground = 0xFF0B1E36,
+            surface = 0xFF102A49, primary = 0xFF1769AA, secondary = 0xFFE33B36,
+            accent = 0xFFB21F2D, highlight = 0xFFFFD65A, text = 0xFFF4F7FF,
+            mutedText = 0xFFB6C7DC, border = 0xFF245B8C, glitch = false, crt = false,
+            intensity = .08f, animationSpeed = 1.05f, cardRadiusDp = 10f
+        ))
+        putIfAbsent("METROPOLIS", BatTheme(
+            name = "METROPOLIS", background = 0xFF080D18, secondaryBackground = 0xFF101A2B,
+            surface = 0xFF14243A, primary = 0xFF1D5F9E, secondary = 0xFFB52D38,
+            accent = 0xFFDBA83D, highlight = 0xFFE9F2FF, text = 0xFFF5F7FC,
+            mutedText = 0xFFA9B8CA, border = 0xFF294B70, glitch = false, crt = true,
+            intensity = .10f, cardRadiusDp = 8f
+        ))
+        putIfAbsent("OBSIDIAN", BatTheme(
+            name = "OBSIDIAN", background = 0xFF08090D, secondaryBackground = 0xFF101218,
+            surface = 0xFF171B24, primary = 0xFF315C82, secondary = 0xFF5D87AD,
+            accent = 0xFF243E59, highlight = 0xFFB9D8F4, text = 0xFFF1F4F8,
+            mutedText = 0xFFA4AFBD, border = 0xFF263548, glitch = false, crt = false,
+            intensity = .06f, cardRadiusDp = 12f
+        ))
+        putIfAbsent("NEON CIRCUIT", BatTheme(
+            name = "NEON CIRCUIT", background = 0xFF0B0714, secondaryBackground = 0xFF150D22,
+            surface = 0xFF1B102A, primary = 0xFF7137A8, secondary = 0xFF19A6A1,
+            accent = 0xFFB52B83, highlight = 0xFF8DE8E0, text = 0xFFF8F1FF,
+            mutedText = 0xFFC0B1CE, border = 0xFF512B70, glitch = true, crt = true,
+            intensity = .14f, animationSpeed = 1.15f, cardRadiusDp = 7f
+        ))
+    }
     fun screenAssignments(): Map<String, String> = listOf("home", "library", "player", "queue", "audio", "settings", "customizer")
         .associateWith { screen ->
             val assigned = prefs.getString("screen_$screen", null)
