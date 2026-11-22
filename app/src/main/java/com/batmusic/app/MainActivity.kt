@@ -38,6 +38,7 @@ import com.batmusic.app.data.PersistedPlaybackQueue
 import com.batmusic.app.data.QueueMediaDescriptor
 import com.batmusic.app.data.LocalPlaylist
 import com.batmusic.app.data.PlaylistRepository
+import com.batmusic.app.data.CustomArtworkRepository
 import com.batmusic.app.audio.AudioPresetRepository
 import com.batmusic.app.audio.BatAudioSettingsMigration
 import com.batmusic.app.audio.SavedAudioPreset
@@ -53,6 +54,7 @@ class MainActivity : ComponentActivity() {
     private val playbackQueueStore by lazy { PlaybackQueueStore(this) }
     private val themeRepository by lazy { ThemeRepository(this) }
     private val playlistRepository by lazy { PlaylistRepository(this) }
+    private val customArtworkRepository by lazy { CustomArtworkRepository(this) }
     private val audioPresetRepository by lazy { AudioPresetRepository(this) }
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
@@ -96,6 +98,9 @@ class MainActivity : ComponentActivity() {
     private var homePanelRadius by mutableFloatStateOf(8f)
     private var homePanelCrop by mutableStateOf(true)
     private var playlistArtworkTarget: String? = null
+    private var folderArtwork by mutableStateOf<Map<String, String>>(emptyMap())
+    private var folderArtworkTarget: String? = null
+    private var songArtworkTarget: Long? = null
     private var queueSongs by mutableStateOf<List<Song>>(emptyList())
     private var queueMediaIndices by mutableStateOf<List<Int>>(emptyList())
     private var queueCurrentIndex by mutableIntStateOf(-1)
@@ -149,8 +154,27 @@ class MainActivity : ComponentActivity() {
         if (uri != null && retainImageReadPermission(uri)) {
             playlistArtworkTarget?.let { playlistRepository.setArtwork(it, uri.toString()) }
             playlists = playlistRepository.all()
+        folderArtwork = customArtworkRepository.folderArtworks()
         }
         playlistArtworkTarget = null
+    }
+    private val folderArtworkPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null && retainImageReadPermission(uri)) {
+            folderArtworkTarget?.let { path ->
+                customArtworkRepository.setFolderArtwork(path, uri.toString())
+                folderArtwork = customArtworkRepository.folderArtworks()
+            }
+        }
+        folderArtworkTarget = null
+    }
+    private val songArtworkPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null && retainImageReadPermission(uri)) {
+            songArtworkTarget?.let { id ->
+                customArtworkRepository.setSongArtwork(id, uri.toString())
+                songs = songs.map { song -> if (song.id == id) song.copy(artworkUri = uri) else song }
+            }
+        }
+        songArtworkTarget = null
     }
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -222,6 +246,7 @@ class MainActivity : ComponentActivity() {
                 favorites = favorites,
                 history = history,
                 playlists = playlists,
+                folderArtwork = folderArtwork,
                 wallpaperUri = wallpaperUri,
                 homePanelUri = homePanelUri, immersiveHome = immersiveHome,
                 homePanelHeight = homePanelHeight, homePanelOpacity = homePanelOpacity,
@@ -400,6 +425,8 @@ class MainActivity : ComponentActivity() {
                     }
                 },
                 onChoosePlaylistArtwork = { id -> playlistArtworkTarget = id; playlistArtworkPicker.launch(arrayOf("image/*")) },
+                onChooseFolderArtwork = { path -> folderArtworkTarget = path; folderArtworkPicker.launch(arrayOf("image/*")) },
+                onChooseSongArtwork = { id -> songArtworkTarget = id; songArtworkPicker.launch(arrayOf("image/*")) },
                 onChooseWallpaper = { wallpaperPicker.launch(arrayOf("image/*")) },
                 onChooseHomePanel = { homePanelPicker.launch(arrayOf("image/*")) },
                 onResetHomePanel = { homePanelUri = null; getSharedPreferences("batmusic", Context.MODE_PRIVATE).edit().remove("home_panel_uri").apply() },
@@ -553,7 +580,9 @@ class MainActivity : ComponentActivity() {
             val result = MusicRepository(this@MainActivity).loadSongs()
             if (generation != catalogLoadGeneration || isDestroyed) return@launch
             catalogStatus = result.status
-            if (result.status != CatalogStatus.UNAVAILABLE) songs = result.songs
+            if (result.status != CatalogStatus.UNAVAILABLE) songs = result.songs.map { song ->
+                customArtworkRepository.songArtwork(song.id)?.let { saved -> song.copy(artworkUri = Uri.parse(saved)) } ?: song
+            }
             if (result.error != null) Log.e(TAG, "MediaStore catalog is unavailable; retaining the previous queue snapshot", result.error)
             if (controller != null && catalogStatus != CatalogStatus.UNAVAILABLE) syncPlaylist()
             if (catalogStatus == CatalogStatus.CONFIRMED) {
