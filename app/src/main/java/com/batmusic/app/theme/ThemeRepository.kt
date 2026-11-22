@@ -141,7 +141,7 @@ class ThemeRepository(context: Context) {
         return copy
     }
     fun delete(name: String) {
-        require(name != BatTheme.default.name) { "O tema padrão não pode ser excluído" }
+        require(name !in builtInThemes().keys) { "Perfis integrados não podem ser excluídos" }
         val all = themes().toMutableMap().apply { remove(name) }
         persist(all)
         listOf("home", "library", "player", "queue", "audio", "settings", "customizer").forEach { screen ->
