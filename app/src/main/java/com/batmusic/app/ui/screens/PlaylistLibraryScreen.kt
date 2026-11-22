@@ -29,7 +29,9 @@ internal fun PlaylistLibraryScreen(
     onAddSongs: (String, List<Long>) -> Unit, onRemoveSong: (String, Long) -> Unit,
     onReorderSong: (String, Int, Int) -> Unit, onPlay: (String) -> Unit, onShuffle: (String) -> Unit,
     onPlayTrack: (List<Song>, Int, String, String) -> Unit, onQueue: (String) -> Unit,
-    onChooseArtwork: (String) -> Unit, onPlayFolder: (List<Song>, Boolean) -> Unit
+    onChooseArtwork: (String) -> Unit, onPlayFolder: (List<Song>, Boolean) -> Unit,
+    folderArtwork: Map<String, String>, onChooseFolderArtwork: (String) -> Unit,
+    onChooseSongArtwork: (Long) -> Unit
 ) {
     var selected by remember { mutableStateOf<String?>(null) }
     var section by remember { mutableStateOf("Playlists") }
