@@ -230,6 +230,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         loadPreferences()
         playlists = playlistRepository.all()
+        folderArtwork = customArtworkRepository.folderArtworks()
         customAudioPresets = audioPresetRepository.all().map { it.name }
         val appVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "—"
         connectToPlaybackService()
