@@ -34,7 +34,15 @@ data class BatAudioSettings(
     val compressorReleaseMs: Float = 120f,
     val compressorMakeupDb: Float = 0f,
     /** Independent release time for the output true-peak limiter. */
-    val limiterReleaseMs: Float = 120f
+    val limiterReleaseMs: Float = 120f,
+    val multibandEnabled: Boolean = false,
+    val multibandThresholdDb: Float = -18f,
+    val multibandRatio: Float = 2f,
+    /** Offline LUFS normalization proposal; disabled until a track has valid cached analysis. */
+    val normalizationEnabled: Boolean = false,
+    val normalizationGainDb: Float = 0f,
+    /** Temporary A/B compensation only; never persisted as the user's master gain. */
+    val abMatchGainDb: Float = 0f
 )
 
 /** PCM processor installed in ExoPlayer's DefaultAudioSink; it never changes system volume. */
@@ -63,6 +71,13 @@ class BatAudioProcessor : BaseAudioProcessor() {
         private set
     @Volatile var outputRmsDb: Float = -120f
         private set
+    val momentaryLufs: Float get() = loudnessMeter?.momentaryLufs ?: LoudnessMeter.SILENCE_LUFS
+    val integratedLufs: Float get() = loudnessMeter?.integratedLufs ?: LoudnessMeter.SILENCE_LUFS
+
+    /** Requests a per-track reset; the audio thread applies it at the next PCM block boundary. */
+    fun resetTrackLoudness() {
+        trackLoudnessResetPending = true
+    }
     @Volatile var visualizerEnabled: Boolean = false
 
     private var channels = 0
@@ -75,6 +90,10 @@ class BatAudioProcessor : BaseAudioProcessor() {
     private var outputRawBits = IntArray(0)
     private var outputBypassed = BooleanArray(0)
     private var truePeakLimiter: LookaheadTruePeakLimiter? = null
+    private var loudnessMeter: LoudnessMeter? = null
+    @Volatile private var trackLoudnessResetPending = false
+    private var multibandDynamics: MultibandDynamics? = null
+    private var multibandWasEnabled = false
     private var configuredEncoding = C.ENCODING_INVALID
     private var appliedSettings: BatAudioSettings? = null
     private var filters = emptyArray<Pair<Int, Coefficients>>()
@@ -94,6 +113,8 @@ class BatAudioProcessor : BaseAudioProcessor() {
         truePeakLimiter = if (formatSupported) {
             LookaheadTruePeakLimiter(sampleRate, channels, TRUE_PEAK_CEILING, marginDb = 0.5f, lookaheadMs = 5f, releaseMs = settings.limiterReleaseMs)
         } else null
+        loudnessMeter = if (formatSupported) LoudnessMeter(sampleRate, channels) else null
+        multibandDynamics = if (formatSupported) MultibandDynamics(sampleRate, channels) else null
         val initialOutputSamples = (truePeakLimiter?.latencyFrames ?: 0) * channels
         outputSamples = FloatArray(initialOutputSamples)
         outputRawBits = IntArray(initialOutputSamples)
@@ -114,6 +135,10 @@ class BatAudioProcessor : BaseAudioProcessor() {
         preLimiterRmsDb = -120f
         outputRmsDb = -120f
         truePeakLimiter?.reset()
+        loudnessMeter?.reset()
+        trackLoudnessResetPending = false
+        multibandDynamics?.reset()
+        multibandWasEnabled = false
         appliedSettings = null
     }
 
@@ -146,6 +171,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
             }
         }
         outputRmsDb = if (measuredSamples > 0) (20.0 * log10(sqrt(squareSum / measuredSamples).coerceAtLeast(1e-12))).toFloat() else -120f
+        loudnessMeter?.process(outputSamples, drainedFrames)
         // Match the live-block meter: report the measured sample peak without masking >0 dBFS.\n        outputPeak = peak
         preLimiterPeak = limiter.blockPreLimiterPeak
         preLimiterRmsDb = limiter.blockPreLimiterRmsDb
@@ -161,6 +187,10 @@ class BatAudioProcessor : BaseAudioProcessor() {
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         if (!inputBuffer.hasRemaining()) return
+        if (trackLoudnessResetPending) {
+            loudnessMeter?.reset()
+            trackLoudnessResetPending = false
+        }
         val input = inputBuffer.order(ByteOrder.nativeOrder())
         val byteCount = input.remaining()
         val config = settings
@@ -216,6 +246,23 @@ class BatAudioProcessor : BaseAudioProcessor() {
 
         if (config.enabled) processEffects(samples, frameCount, config)
         else compressorGainReductionDb = 0f
+        multibandDynamics?.let { dynamics ->
+            dynamics.thresholdDb = config.multibandThresholdDb
+            dynamics.ratio = config.multibandRatio
+            val shouldProcessMultiband = config.multibandEnabled && config.enabled
+            if (shouldProcessMultiband && !multibandWasEnabled) dynamics.reset()
+            multibandWasEnabled = shouldProcessMultiband
+            if (shouldProcessMultiband) dynamics.process(samples, frameCount)
+        }
+
+        // Apply only bounded, analysis-derived post gain before the safety limiter.
+        // This remains independent of tone processing so Original A/B can be level matched.
+        val postGainDb = ((if (config.normalizationEnabled) config.normalizationGainDb else 0f) +
+            config.abMatchGainDb).coerceIn(-12f, 6f)
+        if (postGainDb != 0f) {
+            val postGain = 10f.pow(postGainDb / 20f)
+            for (index in 0 until frameCount * channels) samples[index] *= postGain
+        }
 
         val limiter = truePeakLimiter ?: return
         val expectedOutputFrames = limiter.outputFramesAfterInput(frameCount)
@@ -245,7 +292,8 @@ class BatAudioProcessor : BaseAudioProcessor() {
                 writtenFrames++
             }
         }
-        // Preserve over-range float readings so diagnostics cannot hide an unexpected overshoot.\n        outputPeak = outputBlockPeak
+        // Preserve over-range float readings so diagnostics cannot hide an unexpected overshoot.\n        loudnessMeter?.process(outputSamples, writtenFrames)
+        outputPeak = outputBlockPeak
         outputRmsDb = if (outputSampleCount > 0) (20.0 * log10(sqrt(outputSquareSum / outputSampleCount).coerceAtLeast(1e-12))).toFloat() else -120f
         preLimiterPeak = limiter.blockPreLimiterPeak
         preLimiterRmsDb = limiter.blockPreLimiterRmsDb

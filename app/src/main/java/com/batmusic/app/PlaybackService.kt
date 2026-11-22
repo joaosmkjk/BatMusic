@@ -48,6 +48,7 @@ internal object PlaybackEffects {
     const val EXTRA_BAT_BOOST = "bat_boost"
     const val EXTRA_PREAMP_DB = "preamp_db_float"
     const val EXTRA_COMPRESSOR_ENABLED = "compressor_enabled"
+    const val EXTRA_MULTIBAND_ENABLED = "multiband_enabled"
     const val EXTRA_COMPRESSOR_THRESHOLD = "compressor_threshold_db"
     const val EXTRA_COMPRESSOR_RATIO = "compressor_ratio"
     const val EXTRA_COMPRESSOR_ATTACK = "compressor_attack_ms"
@@ -67,6 +68,8 @@ internal object PlaybackEffects {
     const val SESSION_PRE_LIMITER_PEAK = "audio_pre_limiter_peak"
     const val SESSION_PRE_LIMITER_RMS_DB = "audio_pre_limiter_rms_db"
     const val SESSION_OUTPUT_RMS_DB = "audio_output_rms_db"
+    const val SESSION_MOMENTARY_LUFS = "audio_momentary_lufs"
+    const val SESSION_INTEGRATED_LUFS = "audio_integrated_lufs"
     const val EXTRA_LIMITER_RELEASE = "limiter_release_ms"
     const val SESSION_VISUALIZER_MODE = "audio_visualizer_mode"
     const val SESSION_WAVEFORM = "audio_visualizer_waveform"
@@ -127,6 +130,7 @@ class PlaybackService : MediaSessionService() {
     private var bassStrength = 0
     private var preampDb = 0f
     private var compressorEnabled = false
+    private var multibandEnabled = false
     private var limiterReleaseMs = 120f
     private var compressorThresholdDb = -12f
     private var compressorRatio = 3f
@@ -156,6 +160,11 @@ class PlaybackService : MediaSessionService() {
         }
     }
     private val queueListener = object : Player.Listener {
+        override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+            // Integrated loudness belongs to one track, never to the whole playback session.
+            audioEngine.processor.resetTrackLoudness()
+        }
+
         override fun onEvents(player: Player, events: Player.Events) {
             val queueStateChanged = events.contains(Player.EVENT_TIMELINE_CHANGED) ||
                 events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION) ||
@@ -206,6 +215,7 @@ class PlaybackService : MediaSessionService() {
             bassStrength = args.getInt(PlaybackEffects.EXTRA_BASS_STRENGTH, bassStrength).coerceIn(0, 1000)
             preampDb = args.getFloat(PlaybackEffects.EXTRA_PREAMP_DB, preampDb).coerceIn(0f, 24f)
             compressorEnabled = args.getBoolean(PlaybackEffects.EXTRA_COMPRESSOR_ENABLED, compressorEnabled)
+            multibandEnabled = args.getBoolean(PlaybackEffects.EXTRA_MULTIBAND_ENABLED, multibandEnabled)
             compressorThresholdDb = args.getFloat(PlaybackEffects.EXTRA_COMPRESSOR_THRESHOLD, compressorThresholdDb).coerceIn(-36f, 0f)
             compressorRatio = args.getFloat(PlaybackEffects.EXTRA_COMPRESSOR_RATIO, compressorRatio).coerceIn(1f, 12f)
             compressorAttackMs = args.getFloat(PlaybackEffects.EXTRA_COMPRESSOR_ATTACK, compressorAttackMs).coerceIn(1f, 100f)
@@ -326,7 +336,8 @@ class PlaybackService : MediaSessionService() {
     private fun applyEffects() {
         audioEngine.configure(BatAudioSettings(
             enabled = batAudioEnabled && !audioABOriginal,
-            limiterEnabled = !audioABOriginal,
+            // A/B bypasses tone processing only; peak protection stays active in both paths.
+            limiterEnabled = true,
             batBoost = batBoost,
             equalizerEnabled = equalizerEnabled,
             bandGainsDb = bandGainsTenthDb.map { it / 10f },
@@ -338,7 +349,8 @@ class PlaybackService : MediaSessionService() {
             compressorAttackMs = compressorAttackMs,
             compressorReleaseMs = compressorReleaseMs,
             compressorMakeupDb = compressorMakeupDb,
-            limiterReleaseMs = limiterReleaseMs
+            limiterReleaseMs = limiterReleaseMs,
+            multibandEnabled = multibandEnabled
         ))
     }
 
@@ -359,6 +371,8 @@ class PlaybackService : MediaSessionService() {
         putFloat(PlaybackEffects.SESSION_PRE_LIMITER_PEAK, meter.preLimiterPeak)
         putFloat(PlaybackEffects.SESSION_PRE_LIMITER_RMS_DB, meter.preLimiterRmsDb)
         putFloat(PlaybackEffects.SESSION_OUTPUT_RMS_DB, meter.outputRmsDb)
+        putFloat(PlaybackEffects.SESSION_MOMENTARY_LUFS, meter.momentaryLufs)
+        putFloat(PlaybackEffects.SESSION_INTEGRATED_LUFS, meter.integratedLufs)
         putString(PlaybackEffects.SESSION_VISUALIZER_MODE, audioEngine.visualizerMode)
         if (player.isPlaying && audioEngine.visualizerMode != "OFF") {
             val visualizer = audioEngine.visualizerFrame()
@@ -383,6 +397,7 @@ class PlaybackService : MediaSessionService() {
         bassStrength = preferences.getInt("bass_strength", 0).coerceIn(0, 1000)
         preampDb = preferences.getFloat("preamp_db_float", preferences.getInt("preamp_db", 0).toFloat()).coerceIn(0f, 24f)
         compressorEnabled = preferences.getBoolean("compressor_enabled", false)
+        multibandEnabled = preferences.getBoolean("multiband_enabled", false)
         limiterReleaseMs = preferences.getFloat("limiter_release_ms", 120f).coerceIn(20f, 1_000f)
         compressorThresholdDb = preferences.getFloat("compressor_threshold", -12f).coerceIn(-36f, 0f)
         compressorRatio = preferences.getFloat("compressor_ratio", 3f).coerceIn(1f, 12f)
@@ -410,6 +425,7 @@ class PlaybackService : MediaSessionService() {
             .putInt("bass_strength", bassStrength)
             .putFloat("preamp_db_float", preampDb)
             .putBoolean("compressor_enabled", compressorEnabled)
+            .putBoolean("multiband_enabled", multibandEnabled)
             .putFloat("limiter_release_ms", limiterReleaseMs)
             .putFloat("compressor_threshold", compressorThresholdDb)
             .putFloat("compressor_ratio", compressorRatio)

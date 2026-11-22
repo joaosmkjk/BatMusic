@@ -1,12 +1,7 @@
-name: Android build
+name: Android pull request validation
 
 on:
-  push:
-    branches:
-      - feature/batboost-x-2
   pull_request:
-    branches:
-      - feature/batboost-x-2
 
 permissions:
   contents: read
@@ -26,3 +21,8 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
       - name: Run unit tests and build debug APK
         run: ./gradlew testDebugUnitTest assembleDebug
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BatMusic-debug
+          path: app/build/outputs/apk/debug/app-debug.apk

@@ -10,7 +10,9 @@ data class AudioEngineMeter(
     val compressorGainReductionDb: Float,
     val preLimiterPeak: Float,
     val preLimiterRmsDb: Float,
-    val outputRmsDb: Float
+    val outputRmsDb: Float,
+    val momentaryLufs: Float,
+    val integratedLufs: Float
 )
 data class AudioVisualizerFrame(val waveform: FloatArray, val spectrum: FloatArray)
 
@@ -22,9 +24,8 @@ class AudioEngine {
     @Volatile var visualizerMode: String = "OFF"
         private set
     private val visualizerSamples = FloatArray(4096)
-    private val windowed = FloatArray(4096)
-    private val cosine = Array(16) { band -> FloatArray(4096) { i -> kotlin.math.cos(2.0 * Math.PI * spectrumBins[band] * i / 4096.0).toFloat() } }
-    private val sine = Array(16) { band -> FloatArray(4096) { i -> kotlin.math.sin(2.0 * Math.PI * spectrumBins[band] * i / 4096.0).toFloat() } }
+    private val spectrumAnalyzer = BatSpectrumAnalyzer(4096)
+    private val spectrumMagnitudes = FloatArray(2048)
 
     fun setVisualizerMode(mode: String) {
         visualizerMode = mode.takeIf { it in setOf("OFF", "SPECTRUM", "WAVEFORM") } ?: "OFF"
@@ -39,25 +40,16 @@ class AudioEngine {
     fun meter() = AudioEngineMeter(
         processor.outputPeak, processor.limiterActive, processor.clippingBlocks,
         processor.limiterGainReductionDb, processor.compressorGainReductionDb,
-        processor.preLimiterPeak, processor.preLimiterRmsDb, processor.outputRmsDb
+        processor.preLimiterPeak, processor.preLimiterRmsDb, processor.outputRmsDb,
+        processor.momentaryLufs, processor.integratedLufs
     )
     fun visualizerFrame(): AudioVisualizerFrame {
         processor.copyVisualizerSamples(visualizerSamples)
         val waveform = FloatArray(128) { i -> visualizerSamples[i * 32] }
         if (visualizerMode != "SPECTRUM") return AudioVisualizerFrame(waveform, FloatArray(16))
-        for (i in windowed.indices) {
-            val hann = .5f - .5f * kotlin.math.cos(2f * Math.PI.toFloat() * i / (windowed.size - 1))
-            windowed[i] = visualizerSamples[i] * hann
-        }
-        val spectrum = FloatArray(16)
-        for (band in spectrum.indices) {
-            var real = 0f
-            var imaginary = 0f
-            for (i in windowed.indices) {
-                real += windowed[i] * cosine[band][i]
-                imaginary -= windowed[i] * sine[band][i]
-            }
-            spectrum[band] = (kotlin.math.sqrt(real * real + imaginary * imaginary) * (4f / windowed.size)).coerceIn(0f, 1f)
+        spectrumAnalyzer.analyze(visualizerSamples, spectrumMagnitudes)
+        val spectrum = FloatArray(16) { band ->
+            (spectrumMagnitudes[spectrumBins[band]] * 2f).coerceIn(0f, 1f)
         }
         return AudioVisualizerFrame(waveform, spectrum)
     }

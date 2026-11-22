@@ -108,6 +108,7 @@ class MainActivity : ComponentActivity() {
     private var showNowPlaying by mutableStateOf(false)
     private var preampDb by mutableFloatStateOf(0f)
     private var compressorEnabled by mutableStateOf(false)
+    private var multibandEnabled by mutableStateOf(false)
     private var limiterRelease by mutableFloatStateOf(120f)
     private var compressorThreshold by mutableFloatStateOf(-12f)
     private var compressorRatio by mutableFloatStateOf(3f)
@@ -126,6 +127,8 @@ class MainActivity : ComponentActivity() {
     private var preLimiterPeak by mutableFloatStateOf(0f)
     private var preLimiterRmsDb by mutableFloatStateOf(-120f)
     private var outputRmsDb by mutableFloatStateOf(-120f)
+    private var momentaryLufs by mutableFloatStateOf(-120f)
+    private var integratedLufs by mutableFloatStateOf(-120f)
     private var activeTheme by mutableStateOf(BatTheme.default)
     private var themeProfiles by mutableStateOf(mapOf(BatTheme.default.name to BatTheme.default))
     private var screenThemeAssignments by mutableStateOf(emptyMap<String, String>())
@@ -283,6 +286,7 @@ class MainActivity : ComponentActivity() {
                 effectStatus = effectStatus,
                 preampDb = preampDb,
                 compressorEnabled = compressorEnabled,
+                multibandEnabled = multibandEnabled,
                 compressorThreshold = compressorThreshold,
                 compressorRatio = compressorRatio,
                 compressorAttack = compressorAttack,
@@ -301,6 +305,8 @@ class MainActivity : ComponentActivity() {
                 preLimiterPeak = preLimiterPeak,
                 preLimiterRmsDb = preLimiterRmsDb,
                 outputRmsDb = outputRmsDb,
+                momentaryLufs = momentaryLufs,
+                integratedLufs = integratedLufs,
                 activeTheme = activeTheme,
                 themeProfiles = themeProfiles,
                 screenThemeAssignments = screenThemeAssignments,
@@ -355,6 +361,7 @@ class MainActivity : ComponentActivity() {
                 onClearHistory = { history = emptyList(); savePreferences() },
                 onPreampChange = { preampDb = it; audioPreset = "Personalizado"; sendEffectSettings() },
                 onCompressorEnabledChange = { compressorEnabled = it; sendEffectSettings() },
+                onMultibandEnabledChange = { multibandEnabled = it; sendEffectSettings() },
                 onCompressorThresholdChange = { compressorThreshold = it; sendEffectSettings() },
                 onCompressorRatioChange = { compressorRatio = it; sendEffectSettings() },
                 onCompressorAttackChange = { compressorAttack = it; sendEffectSettings() },
@@ -760,6 +767,8 @@ class MainActivity : ComponentActivity() {
         preLimiterPeak = extras.getFloat(PlaybackEffects.SESSION_PRE_LIMITER_PEAK, 0f).coerceAtLeast(0f)
         preLimiterRmsDb = extras.getFloat(PlaybackEffects.SESSION_PRE_LIMITER_RMS_DB, -120f).coerceIn(-120f, 24f)
         outputRmsDb = extras.getFloat(PlaybackEffects.SESSION_OUTPUT_RMS_DB, -120f).coerceIn(-120f, 24f)
+        momentaryLufs = extras.getFloat(PlaybackEffects.SESSION_MOMENTARY_LUFS, -120f).coerceIn(-120f, 12f)
+        integratedLufs = extras.getFloat(PlaybackEffects.SESSION_INTEGRATED_LUFS, -120f).coerceIn(-120f, 12f)
         extras.getFloatArray(PlaybackEffects.SESSION_WAVEFORM)?.let { visualizerWaveform = it }
         extras.getFloatArray(PlaybackEffects.SESSION_SPECTRUM)?.let { visualizerSpectrum = it }
     }
@@ -774,6 +783,7 @@ class MainActivity : ComponentActivity() {
             putInt(PlaybackEffects.EXTRA_BASS_STRENGTH, bassBoostStrength)
             putFloat(PlaybackEffects.EXTRA_PREAMP_DB, preampDb)
             putBoolean(PlaybackEffects.EXTRA_COMPRESSOR_ENABLED, compressorEnabled)
+            putBoolean(PlaybackEffects.EXTRA_MULTIBAND_ENABLED, multibandEnabled)
             putFloat(PlaybackEffects.EXTRA_COMPRESSOR_THRESHOLD, compressorThreshold)
             putFloat(PlaybackEffects.EXTRA_COMPRESSOR_RATIO, compressorRatio)
             putFloat(PlaybackEffects.EXTRA_COMPRESSOR_ATTACK, compressorAttack)
@@ -810,6 +820,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         preampDb = 0f
+        multibandEnabled = false
         when (name) {
             "Flat", "Original / Flat" -> {
                 equalizerEnabled = false
@@ -858,6 +869,24 @@ class MainActivity : ComponentActivity() {
                 equalizerGains = listOf(-15, -10, -5, 5, 15, 20, 15, 5, 0, -5)
                 bassBoostEnabled = false; bassBoostStrength = 0
                 batAudioEnabled = true; batBoost = 100
+            }
+            "BATLOUD" -> {
+                equalizerEnabled = true
+                equalizerGains = listOf(10, 8, 4, 0, 0, 5, 10, 8, 4, 0)
+                bassBoostEnabled = false
+                bassBoostStrength = 0
+                batAudioEnabled = true
+                batBoost = 160
+                preampDb = 3f
+                compressorEnabled = true
+                compressorThreshold = -14f
+                compressorRatio = 2.5f
+                compressorAttack = 12f
+                compressorRelease = 180f
+                compressorMakeup = 3f
+                limiterRelease = 90f
+                // Add gentle three-band density for BATLOUD; the true-peak limiter remains active.
+                multibandEnabled = true
             }
             "Custom" -> Unit
             "Alternative / Indie" -> {
@@ -1050,6 +1079,7 @@ class MainActivity : ComponentActivity() {
         preampDb = prefs.getFloat("preamp_db_float", prefs.getInt("preamp_db", 0).toFloat()).coerceIn(0f, 24f)
         BatAudioSettingsMigration.migrate(this)
         compressorEnabled = prefs.getBoolean("compressor_enabled", false)
+        multibandEnabled = prefs.getBoolean("multiband_enabled", false)
         limiterRelease = prefs.getFloat("limiter_release_ms", 120f).coerceIn(20f, 1_000f)
         compressorThreshold = prefs.getFloat("compressor_threshold", -12f).coerceIn(-36f, 0f)
         compressorRatio = prefs.getFloat("compressor_ratio", 3f).coerceIn(1f, 12f)

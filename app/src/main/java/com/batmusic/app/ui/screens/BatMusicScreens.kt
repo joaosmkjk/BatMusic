@@ -59,8 +59,8 @@ import com.batmusic.app.theme.ThemeManager
 import kotlin.math.roundToInt
 import android.widget.Toast
 
-private val librarySections = listOf("Playlists")
-private val audioPresets = listOf("Original / Flat", "Rock", "Metal", "Classical", "Electronic", "Vocal", "Custom")
+private val librarySections = listOf("Playlists", "Pastas", "Favoritos", "Histórico")
+private val audioPresets = listOf("Original / Flat", "Rock", "Metal", "Classical", "Electronic", "Vocal", "BATLOUD", "Custom")
 private val LocalBatAnimations = staticCompositionLocalOf { true }
 private val LocalBatAnimationSpeed = staticCompositionLocalOf { 1f }
 private val LocalBatCardRadius = staticCompositionLocalOf { 5f }
@@ -84,11 +84,12 @@ fun BatMusicApp(
     equalizerEnabled: Boolean, bassBoostEnabled: Boolean, bassBoostStrength: Int,
     equalizerGains: List<Int>, equalizerSupported: Boolean, bassBoostSupported: Boolean,
     effectStatus: String, preampDb: Float,
-    compressorEnabled: Boolean, compressorThreshold: Float, compressorRatio: Float,
+    compressorEnabled: Boolean, multibandEnabled: Boolean, compressorThreshold: Float, compressorRatio: Float,
     compressorAttack: Float, compressorRelease: Float, compressorMakeup: Float, limiterRelease: Float,
     outputPeak: Float, limiterActive: Boolean, clippingBlocks: Long,
     limiterGainReductionDb: Float, compressorGainReductionDb: Float,
     preLimiterPeak: Float, preLimiterRmsDb: Float, outputRmsDb: Float,
+    momentaryLufs: Float, integratedLufs: Float,
     visualizerMode: String, visualizerWaveform: FloatArray, visualizerSpectrum: FloatArray, visualizerIntensity: Float,
     activeTheme: BatTheme, themeProfiles: Map<String, BatTheme>, screenThemeAssignments: Map<String, String>,
     onSearchChange: (String) -> Unit,
@@ -104,7 +105,8 @@ fun BatMusicApp(
     onBassBoostStrengthChange: (Int) -> Unit, onEqualizerGainChange: (Int, Int) -> Unit,
     onApplyPreset: (String) -> Unit, onSaveAudioPreset: (String) -> Boolean,
     onDeleteAudioPreset: (String) -> Unit, onPreampChange: (Float) -> Unit,
-    onCompressorEnabledChange: (Boolean) -> Unit, onCompressorThresholdChange: (Float) -> Unit,
+    onCompressorEnabledChange: (Boolean) -> Unit, onMultibandEnabledChange: (Boolean) -> Unit,
+    onCompressorThresholdChange: (Float) -> Unit,
     onCompressorRatioChange: (Float) -> Unit, onCompressorAttackChange: (Float) -> Unit,
     onCompressorReleaseChange: (Float) -> Unit, onCompressorMakeupChange: (Float) -> Unit,
     onLimiterReleaseChange: (Float) -> Unit,
@@ -241,13 +243,16 @@ fun BatMusicApp(
                     onEqEnabled = onEqualizerEnabledChange, onGain = onEqualizerGainChange,
                     onBassEnabled = onBassBoostEnabledChange, onBassStrength = onBassBoostStrengthChange,
                     onPreGain = onPreampChange,
-                    compressorEnabled = compressorEnabled, threshold = compressorThreshold, ratio = compressorRatio,
+                    compressorEnabled = compressorEnabled, multibandEnabled = multibandEnabled,
+                    threshold = compressorThreshold, ratio = compressorRatio,
                     attack = compressorAttack, release = compressorRelease, makeup = compressorMakeup,
                     peak = outputPeak, limiterActive = limiterActive, clippingBlocks = clippingBlocks,
                     limiterGainReductionDb = limiterGainReductionDb, compressorGainReductionDb = compressorGainReductionDb,
                     preLimiterPeak = preLimiterPeak, preLimiterRmsDb = preLimiterRmsDb, outputRmsDb = outputRmsDb,
+                    momentaryLufs = momentaryLufs, integratedLufs = integratedLufs,
                     limiterRelease = limiterRelease,
-                    onCompressorEnabled = onCompressorEnabledChange, onThreshold = onCompressorThresholdChange,
+                    onCompressorEnabled = onCompressorEnabledChange, onMultibandEnabled = onMultibandEnabledChange,
+                    onThreshold = onCompressorThresholdChange,
                     onRatio = onCompressorRatioChange, onAttack = onCompressorAttackChange,
                     onRelease = onCompressorReleaseChange, onMakeup = onCompressorMakeupChange,
                     onLimiterRelease = onLimiterReleaseChange
@@ -308,6 +313,7 @@ fun BatMusicApp(
                 )
                 route == "Biblioteca" -> PlaylistLibraryScreen(
                     playlists = playlists, songs = songs, currentSongId = currentSong?.id, playing = isPlaying,
+                    initialSection = librarySection,
                     onCreate = onCreatePlaylist, onRename = onRenamePlaylist, onDelete = onDeletePlaylist,
                     onAddSongs = onAddPlaylistSongs, onRemoveSong = onRemovePlaylistSong,
                     onReorderSong = onReorderPlaylistSong, onPlay = onPlayPlaylist,
@@ -315,6 +321,8 @@ fun BatMusicApp(
                     onShuffle = onShufflePlaylist,
                     onChooseArtwork = onChoosePlaylistArtwork,
                     onPlayFolder = onPlayFolder, folderArtwork = folderArtwork,
+                    favorites = favorites, history = history,
+                    onToggleFavorite = onToggleFavorite, onClearHistory = onClearHistory,
                     onChooseFolderArtwork = onChooseFolderArtwork, onChooseSongArtwork = onChooseSongArtwork
                 )
                 else -> HomeScreen(
@@ -340,7 +348,13 @@ fun BatMusicApp(
             if (!showNowPlaying && !showEqualizer && route != "Fila" && currentSong != null) {
                 MiniPlayer(
                     song = currentSong, playing = isPlaying, position = currentPosition, duration = duration,
-                    onPlayPause = onPlayPause, onNext = onNext, onOpen = onOpenNowPlaying
+                    onPlayPause = onPlayPause, onNext = onNext, onOpen = onOpenNowPlaying,
+                    onQueue = {
+                        queueReturnRoute = route
+                        queueReturnToPlayer = false
+                        onOpenQueue()
+                        route = "Fila"
+                    }
                 )
             }
             if (!showNowPlaying && !showEqualizer && route != "Fila") {
@@ -406,11 +420,54 @@ private fun HomeScreen(
         if (!hasPermission) {
             EmptyPanel("Sua biblioteca começa aqui", "Permita o acesso às músicas para montar suas playlists.", "Conceder acesso", onRequestPermission)
         } else {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Playlists", "Pastas", "Favoritos", "Histórico").forEach { destination ->
+                    AssistChip(
+                        onClick = { onOpenLibrary(destination) },
+                        label = { Text(destination) },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            labelColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    )
+                }
+            }
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface).clickable { onOpenLibrary("Playlists") }.padding(20.dp)) {
                 Text("SUA MÚSICA, SUAS PLAYLISTS", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                 Text("Organize e reproduza sua coleção", color = MaterialTheme.colorScheme.onBackground, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
                 Text("${songs.size} faixas locais disponíveis", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
                 TextButton(onClick = { onOpenLibrary("Playlists") }, modifier = Modifier.padding(top = 8.dp)) { Text("ABRIR PLAYLISTS  →") }
+            }
+            val recentTracks = history.take(5).mapNotNull { id -> songs.firstOrNull { it.second.id == id } }
+            if (recentTracks.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("CONTINUE OUVINDO", color = MaterialTheme.colorScheme.onBackground, fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp)
+                            Text("Suas últimas faixas", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        }
+                        TextButton(onClick = { onOpenLibrary("Histórico") }) { Text("VER TUDO") }
+                    }
+                    recentTracks.forEach { (index, song) ->
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .clickable { onPlaySong(index) }
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Artwork(song.artworkUri, Modifier.size(44.dp).clip(RoundedCornerShape(5.dp)), song.title)
+                            Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                                Text(song.title, color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(song.artist, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Text("▶", color = MaterialTheme.colorScheme.primary, fontSize = 15.sp)
+                        }
+                    }
+                }
             }
         }
     }
@@ -429,6 +486,7 @@ private fun LibraryScreen(
     val byId = remember(allSongs) { allSongs.withIndex().associate { it.value.id to it.index } }
     val filtered = when (section) {
         "Favoritos" -> songs.filter { it.second.id in favorites }
+        "Histórico" -> songs.filter { it.second.id in history }.sortedBy { history.indexOf(it.second.id) }
         else -> songs
     }
     Column(Modifier.fillMaxSize()) {
@@ -455,6 +513,7 @@ private fun LibraryScreen(
         } else if (filtered.isEmpty()) {
             when (section) {
                 "Favoritos" -> EmptyPanel("Sem favoritos", "Marque músicas com o coração para guardá-las aqui.", "Ver pastas", { onSection("Pastas") }, Modifier.padding(20.dp))
+                "Histórico" -> EmptyPanel("Nada por aqui ainda", "As faixas tocadas aparecerão nesta lista para você retomar rapidamente.", "Ver playlists", { onSection("Playlists") }, Modifier.padding(20.dp))
                 else -> EmptyPanel("Nenhuma música encontrada", if (query.isBlank()) "Atualize a biblioteca para reler o MediaStore." else "Nenhum resultado para essa busca.", "Atualizar biblioteca", onRefresh, Modifier.padding(20.dp))
             }
         } else {
@@ -536,11 +595,13 @@ private fun BatAudioScreen(
     onBoost: (Int) -> Unit, onPreset: (String) -> Unit, onEqEnabled: (Boolean) -> Unit,
     onGain: (Int, Int) -> Unit, onBassEnabled: (Boolean) -> Unit,
     onBassStrength: (Int) -> Unit, onPreGain: (Float) -> Unit,
-    compressorEnabled: Boolean, threshold: Float, ratio: Float, attack: Float, release: Float, makeup: Float,
+    compressorEnabled: Boolean, multibandEnabled: Boolean, threshold: Float, ratio: Float, attack: Float, release: Float, makeup: Float,
     limiterRelease: Float, peak: Float, limiterActive: Boolean, clippingBlocks: Long,
     limiterGainReductionDb: Float, compressorGainReductionDb: Float,
     preLimiterPeak: Float, preLimiterRmsDb: Float, outputRmsDb: Float,
-    onCompressorEnabled: (Boolean) -> Unit, onThreshold: (Float) -> Unit, onRatio: (Float) -> Unit,
+    momentaryLufs: Float, integratedLufs: Float,
+    onCompressorEnabled: (Boolean) -> Unit, onMultibandEnabled: (Boolean) -> Unit,
+    onThreshold: (Float) -> Unit, onRatio: (Float) -> Unit,
     onAttack: (Float) -> Unit, onRelease: (Float) -> Unit, onMakeup: (Float) -> Unit,
     onLimiterRelease: (Float) -> Unit
 ) {
@@ -644,6 +705,18 @@ private fun BatAudioScreen(
             }
             item {
                 PanelCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("BAT DYNAMICS • 3 BANDAS", color = MaterialTheme.colorScheme.onBackground, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Graves, médios e agudos com detecção independente", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        }
+                        Switch(checked = multibandEnabled, onCheckedChange = onMultibandEnabled, enabled = enabled)
+                    }
+                    Text("Crossovers complementares em 250 Hz e 4 kHz. O BATLIMITER continua responsável pelos picos.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                }
+            }
+            item {
+                PanelCard {
                     Text("BATLIMITER", color = MaterialTheme.colorScheme.onBackground, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                     Text("Release independente do compressor", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     FloatSliderRow("Release", limiterRelease, " ms", 20f..1_000f, 98, enabled, onLimiterRelease)
@@ -656,6 +729,7 @@ private fun BatAudioScreen(
                     LinearProgressIndicator(progress = { peak.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceVariant)
                     Text("Peak amostra ${(peak * 100f).roundToInt()}%  •  limiter GR ${"%.1f".format(limiterGainReductionDb)} dB  •  compressor GR ${"%.1f".format(compressorGainReductionDb)} dB", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                     Text("RMS pré-limiter ${"%.1f".format(preLimiterRmsDb)} dBFS  •  RMS saída ${"%.1f".format(outputRmsDb)} dBFS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                    Text("Loudness momentâneo ${"%.1f".format(momentaryLufs)} LUFS  •  integrado ${"%.1f".format(integratedLufs)} LUFS", color = MaterialTheme.colorScheme.secondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     Text("Pico de amostra pré-limiter ${(preLimiterPeak * 100f).roundToInt()}%  •  ${if (limiterActive) "Limiter atuando" else "Limiter em repouso"}  •  blocos limitados: $clippingBlocks", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                 }
             }
@@ -1150,7 +1224,7 @@ private fun AudioVisualizer(mode: String, waveform: FloatArray, spectrum: FloatA
 }
 
 @Composable
-private fun MiniPlayer(song: Song, playing: Boolean, position: Long, duration: Long, onPlayPause: () -> Unit, onNext: () -> Unit, onOpen: () -> Unit) {
+private fun MiniPlayer(song: Song, playing: Boolean, position: Long, duration: Long, onPlayPause: () -> Unit, onNext: () -> Unit, onOpen: () -> Unit, onQueue: () -> Unit) {
     val targetScale = if (playing) 1f else 0.94f
     val playScale = if (LocalBatAnimations.current) animateFloatAsState(targetScale, tween((180 / LocalBatAnimationSpeed.current).roundToInt()), label = "miniPlayScale").value else targetScale
     val sizeAnimation = if (LocalBatAnimations.current) Modifier.animateContentSize() else Modifier
@@ -1161,6 +1235,7 @@ private fun MiniPlayer(song: Song, playing: Boolean, position: Long, duration: L
                 Text(song.title, color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(song.artist, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            MiniControl("☷", onQueue)
             MiniControl(if (playing) "Ⅱ" else "▶", { onPlayPause() }, Modifier.scale(playScale))
             MiniControl("›|", onNext)
         }
@@ -1312,7 +1387,7 @@ private fun RoundAction(label: String, description: String, onClick: () -> Unit,
 
 @Composable
 private fun MiniControl(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier.padding(horizontal = 2.dp).size(39.dp).clip(CircleShape).background(Color(0xFF2B2525)).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(modifier.padding(horizontal = 2.dp).size(44.dp).clip(CircleShape).background(Color(0xFF2B2525)).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Text(label, color = MaterialTheme.colorScheme.secondary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
     }
 }
