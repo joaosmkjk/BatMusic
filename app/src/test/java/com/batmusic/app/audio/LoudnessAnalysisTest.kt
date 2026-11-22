@@ -21,7 +21,7 @@ class LoudnessAnalysisTest {
         val meter = LoudnessMeter(rate, 2)
         val block = FloatArray(4_800 * 2)
         var phase = 0
-        repeat(20) {
+        repeat(80) {
             for (frame in 0 until 4_800) {
                 val sample = (0.1 * sin(2.0 * PI * 1_000.0 * (phase + frame) / rate)).toFloat()
                 block[frame * 2] = sample
