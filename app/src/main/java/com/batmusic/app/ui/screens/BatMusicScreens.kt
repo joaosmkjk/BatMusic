@@ -313,6 +313,7 @@ fun BatMusicApp(
                 )
                 route == "Biblioteca" -> PlaylistLibraryScreen(
                     playlists = playlists, songs = songs, currentSongId = currentSong?.id, playing = isPlaying,
+                    initialSection = librarySection,
                     onCreate = onCreatePlaylist, onRename = onRenamePlaylist, onDelete = onDeletePlaylist,
                     onAddSongs = onAddPlaylistSongs, onRemoveSong = onRemovePlaylistSong,
                     onReorderSong = onReorderPlaylistSong, onPlay = onPlayPlaylist,
