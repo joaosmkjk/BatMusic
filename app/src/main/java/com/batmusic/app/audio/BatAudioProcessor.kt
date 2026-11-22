@@ -63,6 +63,8 @@ class BatAudioProcessor : BaseAudioProcessor() {
         private set
     @Volatile var outputRmsDb: Float = -120f
         private set
+    val momentaryLufs: Float get() = loudnessMeter?.momentaryLufs ?: LoudnessMeter.SILENCE_LUFS
+    val integratedLufs: Float get() = loudnessMeter?.integratedLufs ?: LoudnessMeter.SILENCE_LUFS
     @Volatile var visualizerEnabled: Boolean = false
 
     private var channels = 0
