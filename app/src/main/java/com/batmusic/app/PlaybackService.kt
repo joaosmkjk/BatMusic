@@ -7,6 +7,7 @@ import android.net.Uri
 import android.provider.MediaStore
 import com.batmusic.app.audio.AndroidTrackLoudnessAnalyzer
 import com.batmusic.app.audio.LoudnessNormalizer
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -397,7 +398,7 @@ class PlaybackService : MediaSessionService() {
         val uri = mediaItem?.localConfiguration?.uri ?: return
         val durationMs = player.duration.coerceAtLeast(0L)
         normalizationJob = normalizationScope.launch {
-            val gain = runCatching {
+            val gain = try {
                 val fingerprint = withContext(Dispatchers.IO) {
                     val metadata = contentResolver.query(
                         uri,
@@ -417,7 +418,13 @@ class PlaybackService : MediaSessionService() {
                 val record = AndroidTrackLoudnessAnalyzer(applicationContext)
                     .analyze(uri, fingerprint, durationMs)
                 LoudnessNormalizer.plan(record.integratedLufs, record.truePeakDbtp)?.appliedGainDb ?: 0f
-            }.getOrDefault(0f)
+            } catch (cancelled: CancellationException) {
+                // Track changes and service shutdown must stop analysis immediately.
+                throw cancelled
+            } catch (_: Exception) {
+                // Permission/decoder/metadata failures fall back to transparent gain.
+                0f
+            }
             if (player.currentMediaItem?.localConfiguration?.uri != uri) return@launch
             normalizationGainDb = gain
             applyEffects()
