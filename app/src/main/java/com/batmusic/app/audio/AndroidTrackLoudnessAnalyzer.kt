@@ -147,7 +147,7 @@ class AndroidTrackLoudnessAnalyzer(
             val record = TrackLoudnessRecord(
                 mediaKey = mediaKey,
                 fingerprint = fingerprint,
-                durationMs = durationMs,
+                durationMs = decodedFrames * 1_000L / sampleRate,
                 sampleRate = sampleRate,
                 channels = channels,
                 integratedLufs = meter!!.integratedLufs,
@@ -172,11 +172,6 @@ class AndroidTrackLoudnessAnalyzer(
     private companion object { const val TIMEOUT_US = 10_000L }
 }
 
-/**
- * Independent 4x cubic-interpolated inter-sample peak estimate. This is deliberately
- * a monitor, not a certified BS.1770 true-peak meter. It is used to conservatively
- * constrain normalization and must remain separately testable from the playback limiter.
- */
 /**
  * 4x oversampled inter-sample peak monitor using the same 16-tap FIR phases
  * as the playback limiter. This is a conservative engineering estimate, not

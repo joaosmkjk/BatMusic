@@ -64,6 +64,8 @@ class TrackLoudnessToolsTest {
         val record = accumulator.finish(-2.0f)
         assertEquals("content://media/audio/123", record.mediaKey)
         assertEquals("size=1234;mtime=42", record.fingerprint)
+        assertEquals(TrackLoudnessRecord.CURRENT_VERSION, record.analysisVersion)
+        assertEquals(TrackLoudnessRecord.CURRENT_VERSION, 2)
         assertTrue(record.integratedLufs > -70f)
         assertEquals(-2f, record.truePeakDbtp, 0.001f)
     }

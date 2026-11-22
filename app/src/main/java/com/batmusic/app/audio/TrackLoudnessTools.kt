@@ -14,7 +14,7 @@ data class TrackLoudnessRecord(
         require(durationMs >= 0L && sampleRate >= 8_000 && channels in 1..8)
         require(integratedLufs.isFinite() && truePeakDbtp.isFinite() && analysisVersion > 0)
     }
-    companion object { const val CURRENT_VERSION = 1 }
+    companion object { const val CURRENT_VERSION = 2 }
 }
 
 class TrackLoudnessCache(context: Context) {
