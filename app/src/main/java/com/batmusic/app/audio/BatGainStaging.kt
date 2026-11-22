@@ -16,6 +16,7 @@ internal data class BatGainStagingPlan(
 
 internal object BatGainStaging {
     fun plan(settings: BatAudioSettings): BatGainStagingPlan {
+        if (!settings.enabled) return BatGainStagingPlan(0f, 0f, 0f)
         val preGainDb = settings.preGainDb.takeIf { it.isFinite() }?.coerceIn(0f, 24f) ?: 0f
         val maxEqDb = if (settings.equalizerEnabled) {
             settings.bandGainsDb.asSequence()
