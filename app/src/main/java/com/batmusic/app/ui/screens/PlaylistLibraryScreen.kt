@@ -93,12 +93,13 @@ internal fun PlaylistLibraryScreen(
                     else LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(folderEntries.toList(), key = { it.first }) { (path, tracks) ->
                             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { selectedFolder = path }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Artwork(tracks.firstOrNull()?.artworkUri, Modifier.size(54.dp), path)
+                                Artwork(folderArtwork[path]?.let { Uri.parse(it) } ?: tracks.firstOrNull()?.artworkUri, Modifier.size(54.dp), path)
                                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                                     Text(path.substringAfterLast('/').ifBlank { "Armazenamento" }, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Text(tracks.size.toString() + " faixas • " + path.ifBlank { "Caminho não informado" }, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                                 TextButton(onClick = { onPlayFolder(tracks, false) }) { Text("▶") }
+                                TextButton(onClick = { onChooseFolderArtwork(path) }) { Text("Capa") }
                                 TextButton(onClick = { onPlayFolder(tracks, true) }) { Text("+") }
                             }
                         }
@@ -202,6 +203,7 @@ internal fun PlaylistLibraryScreen(
                             Text(song.title, color = if (song.id == currentSongId && playing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(song.artist, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
+                        TextButton(onClick = { onChooseSongArtwork(song.id) }) { Text("Capa") }
                         TextButton(onClick = { onRemoveSong(playlist.id, song.id) }) { Text("×") }
                     }
                 }
