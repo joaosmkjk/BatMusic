@@ -47,8 +47,8 @@ class LoudnessMeter(
     private var recentEnergySum = 0.0
     private var framesInBlock = 0
     private val channelEnergy = DoubleArray(channelCount)
-    private var integratedBlockEnergy = DoubleArray(256)
-    private var integratedCount = 0
+    private val integratedEnergyByBin = DoubleArray(701)
+    private val integratedCountByBin = LongArray(701)
 
     private val shelfCoefficients = highShelf(
         sampleRate.toDouble(), 1681.974450955533, 3.999843853973347, 0.7071752369554196
@@ -83,7 +83,8 @@ class LoudnessMeter(
         recentCount = 0
         recentEnergySum = 0.0
         framesInBlock = 0
-        integratedCount = 0
+        integratedEnergyByBin.fill(0.0)
+        integratedCountByBin.fill(0L)
         measuredBlocks = 0
         momentaryLufs = SILENCE_LUFS
         integratedLufs = SILENCE_LUFS
@@ -112,24 +113,22 @@ class LoudnessMeter(
     }
 
     private fun appendIntegratedEnergy(energy: Double) {
-        if (integratedCount == integratedBlockEnergy.size) {
-            integratedBlockEnergy = integratedBlockEnergy.copyOf(integratedBlockEnergy.size * 2)
-        }
-        integratedBlockEnergy[integratedCount++] = energy
-        measuredBlocks = integratedCount
+        measuredBlocks++
+        val loudness = toLufs(energy)
+        if (loudness < ABSOLUTE_GATE_LUFS) return
+        val bin = ((loudness - ABSOLUTE_GATE_LUFS) * 10.0).toInt().coerceIn(0, 700)
+        integratedEnergyByBin[bin] += energy
+        integratedCountByBin[bin]++
     }
 
     private fun updateIntegrated() {
         var absoluteSum = 0.0
-        var absoluteCount = 0
-        for (i in 0 until integratedCount) {
-            val energy = integratedBlockEnergy[i]
-            if (toLufs(energy) >= ABSOLUTE_GATE_LUFS) {
-                absoluteSum += energy
-                absoluteCount++
-            }
+        var absoluteCount = 0L
+        for (bin in integratedEnergyByBin.indices) {
+            absoluteSum += integratedEnergyByBin[bin]
+            absoluteCount += integratedCountByBin[bin]
         }
-        if (absoluteCount == 0) {
+        if (absoluteCount == 0L) {
             integratedLufs = SILENCE_LUFS
             return
         }
@@ -137,15 +136,15 @@ class LoudnessMeter(
         val relativeGate = toLufs(preliminary) - RELATIVE_GATE_LU
         val threshold = maxOf(ABSOLUTE_GATE_LUFS, relativeGate)
         var gatedSum = 0.0
-        var gatedCount = 0
-        for (i in 0 until integratedCount) {
-            val energy = integratedBlockEnergy[i]
-            if (toLufs(energy) >= threshold) {
-                gatedSum += energy
-                gatedCount++
+        var gatedCount = 0L
+        for (bin in integratedEnergyByBin.indices) {
+            val binCenterLufs = ABSOLUTE_GATE_LUFS + (bin + 0.5) / 10.0
+            if (binCenterLufs >= threshold) {
+                gatedSum += integratedEnergyByBin[bin]
+                gatedCount += integratedCountByBin[bin]
             }
         }
-        integratedLufs = if (gatedCount > 0) toLufs(gatedSum / gatedCount) else SILENCE_LUFS
+        integratedLufs = if (gatedCount > 0L) toLufs(gatedSum / gatedCount) else SILENCE_LUFS
     }
 
     private class Biquad {
