@@ -124,19 +124,13 @@ class PlaylistRepository(context: Context) {
             })
         }
         val serialized = rows.toString()
-        // SharedPreferences commits the complete XML file atomically. Keep the
-        // last known-good logical snapshot before replacing the primary value.
+        // Preserve the previous valid snapshot, not the new value being written.
+        // If the primary is corrupt, keep the already validated backup instead.
+        val currentPrimary = prefs.getString(KEY_PLAYLISTS, null)
+        val previousValid = currentPrimary?.takeIf { raw -> runCatching { parse(raw) }.isSuccess }
+            ?: prefs.getString(KEY_BACKUP, null)?.takeIf { raw -> runCatching { parse(raw) }.isSuccess }
         val editor = prefs.edit()
-            .putString(KEY_BACKUP, JSONArray().also { backup ->
-                playlists.forEach { playlist ->
-                    backup.put(JSONObject().apply {
-                        put("id", playlist.id)
-                        put("name", playlist.name)
-                        put("songs", JSONArray(playlist.songIds))
-                        put("artwork", playlist.artworkUri ?: "")
-                    })
-                }
-            }.toString())
+            .putString(KEY_BACKUP, previousValid ?: serialized)
             .putString(KEY_PLAYLISTS, serialized)
         check(editor.commit()) { "Não foi possível salvar as playlists" }
     }
