@@ -752,7 +752,7 @@ class MainActivity : ComponentActivity() {
         bassBoostSupported = extras.getBoolean(PlaybackEffects.SESSION_BASS_SUPPORTED, false)
         effectStatus = extras.getString(PlaybackEffects.SESSION_EFFECT_STATUS)
             ?: "Conectando aos efeitos de áudio…"
-        outputPeak = extras.getFloat(PlaybackEffects.SESSION_OUTPUT_PEAK, 0f).coerceIn(0f, 1f)
+        outputPeak = extras.getFloat(PlaybackEffects.SESSION_OUTPUT_PEAK, 0f).coerceIn(0f, 8f)
         limiterActive = extras.getBoolean(PlaybackEffects.SESSION_LIMITER_ACTIVE, false)
         clippingBlocks = extras.getLong(PlaybackEffects.SESSION_CLIP_BLOCKS, 0L)
         limiterGainReductionDb = extras.getFloat(PlaybackEffects.SESSION_LIMITER_GR_DB, 0f).coerceAtLeast(0f)
