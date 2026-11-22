@@ -47,6 +47,12 @@ class OfflineTruePeakAndAbTest {
     }
 
     @Test
+    fun unsafePeakCorrectionOutsideBoundedRangeIsRejected() {
+        assertNull(LoudnessNormalizer.plan(-18f, 20f))
+        assertNull(LoudnessABMatcher.matchGainDb(-18f, -18f, 20f))
+    }
+
+    @Test
     fun abMatcherRejectsSilenceAndInvalidMeasurements() {
         assertNull(LoudnessABMatcher.matchGainDb(-120f, -18f, -4f))
         assertNull(LoudnessABMatcher.matchGainDb(-16f, Float.NaN, -4f))
