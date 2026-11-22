@@ -303,6 +303,8 @@ class MainActivity : ComponentActivity() {
                 preLimiterPeak = preLimiterPeak,
                 preLimiterRmsDb = preLimiterRmsDb,
                 outputRmsDb = outputRmsDb,
+                momentaryLufs = momentaryLufs,
+                integratedLufs = integratedLufs,
                 activeTheme = activeTheme,
                 themeProfiles = themeProfiles,
                 screenThemeAssignments = screenThemeAssignments,
