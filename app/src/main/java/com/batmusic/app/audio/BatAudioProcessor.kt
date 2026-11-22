@@ -37,7 +37,12 @@ data class BatAudioSettings(
     val limiterReleaseMs: Float = 120f,
     val multibandEnabled: Boolean = false,
     val multibandThresholdDb: Float = -18f,
-    val multibandRatio: Float = 2f
+    val multibandRatio: Float = 2f,
+    /** Offline LUFS normalization proposal; disabled until a track has valid cached analysis. */
+    val normalizationEnabled: Boolean = false,
+    val normalizationGainDb: Float = 0f,
+    /** Temporary A/B compensation only; never persisted as the user's master gain. */
+    val abMatchGainDb: Float = 0f
 )
 
 /** PCM processor installed in ExoPlayer's DefaultAudioSink; it never changes system volume. */
@@ -248,6 +253,15 @@ class BatAudioProcessor : BaseAudioProcessor() {
             if (shouldProcessMultiband && !multibandWasEnabled) dynamics.reset()
             multibandWasEnabled = shouldProcessMultiband
             if (shouldProcessMultiband) dynamics.process(samples, frameCount)
+        }
+
+        // Apply only bounded, analysis-derived post gain before the safety limiter.
+        // This remains independent of tone processing so Original A/B can be level matched.
+        val postGainDb = ((if (config.normalizationEnabled) config.normalizationGainDb else 0f) +
+            config.abMatchGainDb).coerceIn(-12f, 6f)
+        if (postGainDb != 0f) {
+            val postGain = 10f.pow(postGainDb / 20f)
+            for (index in 0 until frameCount * channels) samples[index] *= postGain
         }
 
         val limiter = truePeakLimiter ?: return
