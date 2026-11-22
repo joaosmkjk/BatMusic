@@ -4,64 +4,35 @@ import android.content.Context
 import org.json.JSONObject
 import java.security.MessageDigest
 
-/**
- * Persisted analysis for one exact media revision. The caller must invalidate the
- * record when the URI, size, modified time, decoder format, or analysis version changes.
- */
 data class TrackLoudnessRecord(
-    val mediaKey: String,
-    val fingerprint: String,
-    val durationMs: Long,
-    val sampleRate: Int,
-    val channels: Int,
-    val integratedLufs: Float,
-    val truePeakDbtp: Float,
-    val analysisVersion: Int = CURRENT_VERSION
+    val mediaKey: String, val fingerprint: String, val durationMs: Long,
+    val sampleRate: Int, val channels: Int, val integratedLufs: Float,
+    val truePeakDbtp: Float, val analysisVersion: Int = CURRENT_VERSION
 ) {
     init {
-        require(mediaKey.isNotBlank())
-        require(fingerprint.isNotBlank())
-        require(durationMs >= 0L)
-        require(sampleRate >= 8_000)
-        require(channels in 1..8)
-        require(integratedLufs.isFinite())
-        require(truePeakDbtp.isFinite())
-        require(analysisVersion > 0)
+        require(mediaKey.isNotBlank() && fingerprint.isNotBlank())
+        require(durationMs >= 0L && sampleRate >= 8_000 && channels in 1..8)
+        require(integratedLufs.isFinite() && truePeakDbtp.isFinite() && analysisVersion > 0)
     }
-
-    companion object {
-        const val CURRENT_VERSION = 1
-    }
+    companion object { const val CURRENT_VERSION = 1 }
 }
 
-/**
- * Small SharedPreferences cache. It stores measurements only; it never stores or
- * applies playback gain. Fingerprints should include the media URI, file size,
- * modified timestamp and decoder/analysis version.
- */
 class TrackLoudnessCache(context: Context) {
     private val preferences = context.applicationContext
         .getSharedPreferences("batmusic_loudness_cache_v1", Context.MODE_PRIVATE)
 
     fun get(mediaKey: String, fingerprint: String): TrackLoudnessRecord? {
         if (mediaKey.isBlank() || fingerprint.isBlank()) return null
-        val key = cacheKey(mediaKey)
-        val raw = preferences.getString(key, null) ?: return null
+        val raw = preferences.getString(cacheKey(mediaKey), null) ?: return null
         return runCatching {
             val json = JSONObject(raw)
-            val record = TrackLoudnessRecord(
-                mediaKey = json.getString("mediaKey"),
-                fingerprint = json.getString("fingerprint"),
-                durationMs = json.getLong("durationMs"),
-                sampleRate = json.getInt("sampleRate"),
-                channels = json.getInt("channels"),
-                integratedLufs = json.getDouble("integratedLufs").toFloat(),
-                truePeakDbtp = json.getDouble("truePeakDbtp").toFloat(),
-                analysisVersion = json.getInt("analysisVersion")
-            )
-            record.takeIf {
-                it.mediaKey == mediaKey &&
-                    it.fingerprint == fingerprint &&
+            TrackLoudnessRecord(
+                json.getString("mediaKey"), json.getString("fingerprint"),
+                json.getLong("durationMs"), json.getInt("sampleRate"), json.getInt("channels"),
+                json.getDouble("integratedLufs").toFloat(), json.getDouble("truePeakDbtp").toFloat(),
+                json.getInt("analysisVersion")
+            ).takeIf {
+                it.mediaKey == mediaKey && it.fingerprint == fingerprint &&
                     it.analysisVersion == TrackLoudnessRecord.CURRENT_VERSION
             }
         }.getOrNull()
@@ -70,14 +41,10 @@ class TrackLoudnessCache(context: Context) {
     fun put(record: TrackLoudnessRecord) {
         if (record.analysisVersion != TrackLoudnessRecord.CURRENT_VERSION) return
         val json = JSONObject().apply {
-            put("mediaKey", record.mediaKey)
-            put("fingerprint", record.fingerprint)
-            put("durationMs", record.durationMs)
-            put("sampleRate", record.sampleRate)
-            put("channels", record.channels)
-            put("integratedLufs", record.integratedLufs.toDouble())
-            put("truePeakDbtp", record.truePeakDbtp.toDouble())
-            put("analysisVersion", record.analysisVersion)
+            put("mediaKey", record.mediaKey); put("fingerprint", record.fingerprint)
+            put("durationMs", record.durationMs); put("sampleRate", record.sampleRate)
+            put("channels", record.channels); put("integratedLufs", record.integratedLufs.toDouble())
+            put("truePeakDbtp", record.truePeakDbtp.toDouble()); put("analysisVersion", record.analysisVersion)
         }
         preferences.edit().putString(cacheKey(record.mediaKey), json.toString()).apply()
     }
@@ -87,21 +54,14 @@ class TrackLoudnessCache(context: Context) {
     }
 
     private fun cacheKey(mediaKey: String): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-            .digest(mediaKey.toByteArray(Charsets.UTF_8))
+        val digest = MessageDigest.getInstance("SHA-256").digest(mediaKey.toByteArray(Charsets.UTF_8))
         return "track_" + digest.joinToString("") { "%02x".format(it) }
     }
 }
 
-/**
- * A conservative gain proposal. Both integrated loudness and a separately measured
- * true peak are mandatory. This class does not alter audio or device volume.
- */
 data class LoudnessGainPlan(
-    val requestedGainDb: Float,
-    val appliedGainDb: Float,
-    val predictedIntegratedLufs: Float,
-    val predictedTruePeakDbtp: Float
+    val requestedGainDb: Float, val appliedGainDb: Float,
+    val predictedIntegratedLufs: Float, val predictedTruePeakDbtp: Float
 )
 
 object LoudnessNormalizer {
@@ -110,37 +70,32 @@ object LoudnessNormalizer {
     const val MAX_POSITIVE_GAIN_DB = 3f
     const val MAX_CUT_DB = -12f
 
-    fun plan(
-        integratedLufs: Float,
-        truePeakDbtp: Float,
-        targetLufs: Float = DEFAULT_TARGET_LUFS
-    ): LoudnessGainPlan? {
+    fun plan(integratedLufs: Float, truePeakDbtp: Float,
+             targetLufs: Float = DEFAULT_TARGET_LUFS): LoudnessGainPlan? {
         if (!integratedLufs.isFinite() || !truePeakDbtp.isFinite() || !targetLufs.isFinite()) return null
         if (integratedLufs <= LoudnessMeter.ABSOLUTE_GATE_LUFS.toFloat()) return null
         val requested = targetLufs - integratedLufs
-        val peakLimited = TRUE_PEAK_CEILING_DBTP - truePeakDbtp
-        val applied = requested.coerceIn(MAX_CUT_DB, MAX_POSITIVE_GAIN_DB)
-            .coerceAtMost(peakLimited)
-        return LoudnessGainPlan(
-            requestedGainDb = requested,
-            appliedGainDb = applied,
-            predictedIntegratedLufs = integratedLufs + applied,
-            predictedTruePeakDbtp = truePeakDbtp + applied
-        )
+        val peakAllowance = TRUE_PEAK_CEILING_DBTP - truePeakDbtp
+        val applied = requested.coerceIn(MAX_CUT_DB, MAX_POSITIVE_GAIN_DB).coerceAtMost(peakAllowance)
+        return LoudnessGainPlan(requested, applied, integratedLufs + applied, truePeakDbtp + applied)
     }
 }
 
-/**
- * Streaming offline-analysis accumulator. A decoder feeds decoded interleaved PCM
- * blocks; this keeps the measurement bounded in memory regardless of track length.
- * True peak must be supplied by a separately validated oversampled measurement.
- */
+/** Loudness-matched A/B proposal; use the same source section and keep this gain temporary. */
+object LoudnessABMatcher {
+    const val MAX_MATCH_GAIN_DB = 6f
+    fun matchGainDb(referenceLufs: Float, comparisonLufs: Float, comparisonTruePeakDbtp: Float): Float? {
+        if (!referenceLufs.isFinite() || !comparisonLufs.isFinite() ||
+            !comparisonTruePeakDbtp.isFinite() || referenceLufs <= -70f || comparisonLufs <= -70f) return null
+        val requested = (referenceLufs - comparisonLufs).coerceIn(-MAX_MATCH_GAIN_DB, MAX_MATCH_GAIN_DB)
+        val peakAllowance = LoudnessNormalizer.TRUE_PEAK_CEILING_DBTP - comparisonTruePeakDbtp
+        return requested.coerceAtMost(peakAllowance)
+    }
+}
+
 class OfflineLoudnessAccumulator(
-    private val mediaKey: String,
-    private val fingerprint: String,
-    private val durationMs: Long,
-    sampleRate: Int,
-    channels: Int
+    private val mediaKey: String, private val fingerprint: String, private val durationMs: Long,
+    sampleRate: Int, channels: Int
 ) {
     private val meter = LoudnessMeter(sampleRate, channels)
     private val sampleRateValue = sampleRate
@@ -152,18 +107,11 @@ class OfflineLoudnessAccumulator(
         meter.process(interleavedPcm, frameCount)
     }
 
-    fun finish(measuredTruePeakDbtp: Float): TrackLoudnessRecord {
+    fun finish(measuredPeakDbtp: Float): TrackLoudnessRecord {
         check(!finished) { "Analysis is already finished" }
-        require(measuredTruePeakDbtp.isFinite())
+        require(measuredPeakDbtp.isFinite())
         finished = true
-        return TrackLoudnessRecord(
-            mediaKey = mediaKey,
-            fingerprint = fingerprint,
-            durationMs = durationMs,
-            sampleRate = sampleRateValue,
-            channels = channelCount,
-            integratedLufs = meter.integratedLufs,
-            truePeakDbtp = measuredTruePeakDbtp
-        )
+        return TrackLoudnessRecord(mediaKey, fingerprint, durationMs, sampleRateValue,
+            channelCount, meter.integratedLufs, measuredPeakDbtp)
     }
 }
