@@ -88,6 +88,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
     private var loudnessMeter: LoudnessMeter? = null
     @Volatile private var trackLoudnessResetPending = false
     private var multibandDynamics: MultibandDynamics? = null
+    private var multibandWasEnabled = false
     private var configuredEncoding = C.ENCODING_INVALID
     private var appliedSettings: BatAudioSettings? = null
     private var filters = emptyArray<Pair<Int, Coefficients>>()
@@ -132,6 +133,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
         loudnessMeter?.reset()
         trackLoudnessResetPending = false
         multibandDynamics?.reset()
+        multibandWasEnabled = false
         appliedSettings = null
     }
 
@@ -242,7 +244,10 @@ class BatAudioProcessor : BaseAudioProcessor() {
         multibandDynamics?.let { dynamics ->
             dynamics.thresholdDb = config.multibandThresholdDb
             dynamics.ratio = config.multibandRatio
-            if (config.multibandEnabled && config.enabled) dynamics.process(samples, frameCount)
+            val shouldProcessMultiband = config.multibandEnabled && config.enabled
+            if (shouldProcessMultiband && !multibandWasEnabled) dynamics.reset()
+            multibandWasEnabled = shouldProcessMultiband
+            if (shouldProcessMultiband) dynamics.process(samples, frameCount)
         }
 
         val limiter = truePeakLimiter ?: return
