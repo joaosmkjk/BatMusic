@@ -54,25 +54,26 @@ internal fun PlaylistLibraryScreen(
         }
     }
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (playlist != null) TextButton(onClick = { selected = null }) { Text("‹ Biblioteca") }
-            else if (selectedFolder != null) TextButton(onClick = { selectedFolder = null }) { Text("‹ Pastas") }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (playlist != null) TextButton(onClick = { selected = null }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("‹") }
+            else if (selectedFolder != null) TextButton(onClick = { selectedFolder = null }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("‹") }
             if (playlist != null) {
-                Artwork(playlist.artworkUri?.let { Uri.parse(it) } ?: playlist.songIds.firstNotNullOfOrNull { id -> songs.firstOrNull { it.id == id }?.artworkUri }, Modifier.size(44.dp), playlist.name)
-                Spacer(Modifier.width(10.dp))
+                Artwork(playlist.artworkUri?.let { Uri.parse(it) } ?: playlist.songIds.firstNotNullOfOrNull { id -> songs.firstOrNull { it.id == id }?.artworkUri }, Modifier.size(42.dp), playlist.name)
+                Spacer(Modifier.width(9.dp))
             }
             Column(Modifier.weight(1f)) {
-                Text(playlist?.name ?: selectedFolder?.substringAfterLast('/')?.ifBlank { "Armazenamento" } ?: when (section) { "Pastas" -> "Pastas"; "Todas" -> "Todas as músicas"; else -> "Biblioteca" }, color = MaterialTheme.colorScheme.onBackground, fontSize = 25.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(playlist?.name ?: selectedFolder?.substringAfterLast('/')?.ifBlank { "Armazenamento" } ?: when (section) { "Pastas" -> "Pastas"; "Todas" -> "Todas as músicas"; else -> "Biblioteca" }, color = MaterialTheme.colorScheme.onBackground, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val availableCount = playlist?.songIds?.count { id -> songs.any { it.id == id } } ?: 0
-                val missingCount = (playlist?.songIds?.size ?: 0) - availableCount
-                Text(if (playlist != null) availableCount.toString() + " de " + playlist.songIds.size + " faixas disponíveis" else if (section == "Pastas") folders.size.toString() + " pastas • " + songs.size + " faixas" else if (section == "Todas") filteredSongs.size.toString() + " faixas encontradas" else "Sua coleção pessoal", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                Text(if (playlist != null) availableCount.toString() + " de " + playlist.songIds.size + " faixas disponíveis" else if (section == "Pastas") folders.size.toString() + " pastas • " + songs.size + " faixas" else if (section == "Todas") filteredSongs.size.toString() + " faixas encontradas" else "Sua coleção pessoal", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
             }
-            if (playlist == null) TextButton(onClick = { name = ""; dialog = "create" }) { Text("＋ Criar") }
-            else {
-                TextButton(onClick = { onChooseArtwork(playlist.id) }) { Text("Capa") }
-                TextButton(onClick = { onPlay(playlist.id) }, enabled = playlist.songIds.any { id -> songs.any { it.id == id } }) { Text("Tocar") }
-                TextButton(onClick = { onShuffle(playlist.id) }, enabled = playlist.songIds.any { id -> songs.any { it.id == id } }) { Text("⤨ Aleatório") }
-                TextButton(onClick = { adding = true; selectedIds = emptySet() }) { Text("＋ Faixas") }
+            if (playlist == null) TextButton(onClick = { name = ""; dialog = "create" }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("＋") }
+        }
+        if (playlist != null) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { onChooseArtwork(playlist.id) }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Capa") }
+                TextButton(onClick = { onPlay(playlist.id) }, enabled = playlist.songIds.any { id -> songs.any { it.id == id } }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("▶ Tocar") }
+                TextButton(onClick = { onShuffle(playlist.id) }, enabled = playlist.songIds.any { id -> songs.any { it.id == id } }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("⤨ Aleatório") }
+                TextButton(onClick = { adding = true; selectedIds = emptySet() }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("＋ Faixas") }
             }
         }
         if (playlist == null) {
@@ -160,11 +161,21 @@ internal fun PlaylistLibraryScreen(
             val rows = playlist.songIds.mapIndexedNotNull { playlistIndex, id ->
                 songs.firstOrNull { it.id == id }?.let { playlistIndex to it }
             }
-            if (rows.isEmpty()) Column(Modifier.fillMaxSize()) {
-                EmptyPanel(if (playlist.songIds.isEmpty()) "Playlist vazia" else "Faixas indisponíveis", if (playlist.songIds.isEmpty()) "Adicione músicas locais para começar." else "As faixas salvas não estão disponíveis no dispositivo. Elas continuam registradas na playlist.", "＋ Adicionar músicas", { adding = true }, Modifier.padding(20.dp))
-                playlist.songIds.forEach { missingId ->
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Faixa indisponível • ID local $missingId", Modifier.weight(1f), color = MaterialTheme.colorScheme.secondary, fontSize = 13.sp)
+            if (rows.isEmpty()) LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                item(key = "playlist-empty-${playlist.id}") {
+                    EmptyPanel(
+                        if (playlist.songIds.isEmpty()) "Playlist vazia" else "Faixas indisponíveis",
+                        if (playlist.songIds.isEmpty()) "Adicione músicas locais para começar." else "As faixas continuam salvas, mas não foram localizadas no catálogo atual.",
+                        "＋ Adicionar músicas", { adding = true }, Modifier.fillMaxWidth()
+                    )
+                }
+                items(playlist.songIds, key = { "unresolved-${playlist.id}-$it" }) { missingId ->
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Faixa não localizada • ID $missingId", Modifier.weight(1f), color = MaterialTheme.colorScheme.secondary, fontSize = 13.sp)
                         TextButton(onClick = { onRemoveSong(playlist.id, missingId) }) { Text("Remover") }
                     }
                 }
