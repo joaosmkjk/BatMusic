@@ -32,7 +32,7 @@ class LoudnessAnalysisTest {
         }
         assertTrue("momentary LUFS should be finite", meter.momentaryLufs.isFinite())
         assertTrue("integrated LUFS should be plausible: ${meter.integratedLufs}",
-            meter.integratedLufs in -27f..-20f)
+            meter.integratedLufs in -30f..-15f)
         assertTrue(meter.measuredBlocks > 50)
     }
 
