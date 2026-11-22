@@ -141,7 +141,7 @@ class ThemeRepository(context: Context) {
         return copy
     }
     fun delete(name: String) {
-        require(name !in builtInThemes().keys) { "Perfis integrados não podem ser excluídos" }
+        require(name !in setOf(BatTheme.default.name, "KRYPTON", "METROPOLIS", "OBSIDIAN", "NEON CIRCUIT")) { "Perfis integrados não podem ser excluídos" }
         val all = themes().toMutableMap().apply { remove(name) }
         persist(all)
         listOf("home", "library", "player", "queue", "audio", "settings", "customizer").forEach { screen ->
