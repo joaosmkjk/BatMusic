@@ -19,7 +19,7 @@ data class TrackLoudnessRecord(
 
 class TrackLoudnessCache(context: Context) {
     private val preferences = context.applicationContext
-        .getSharedPreferences("batmusic_loudness_cache_v1", Context.MODE_PRIVATE)
+        .getSharedPreferences("batmusic_loudness_cache_v2", Context.MODE_PRIVATE)
 
     fun get(mediaKey: String, fingerprint: String): TrackLoudnessRecord? {
         if (mediaKey.isBlank() || fingerprint.isBlank()) return null
