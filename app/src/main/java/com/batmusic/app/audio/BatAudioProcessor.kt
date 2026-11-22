@@ -34,7 +34,10 @@ data class BatAudioSettings(
     val compressorReleaseMs: Float = 120f,
     val compressorMakeupDb: Float = 0f,
     /** Independent release time for the output true-peak limiter. */
-    val limiterReleaseMs: Float = 120f
+    val limiterReleaseMs: Float = 120f,
+    val multibandEnabled: Boolean = false,
+    val multibandThresholdDb: Float = -18f,
+    val multibandRatio: Float = 2f
 )
 
 /** PCM processor installed in ExoPlayer's DefaultAudioSink; it never changes system volume. */
@@ -78,6 +81,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
     private var outputBypassed = BooleanArray(0)
     private var truePeakLimiter: LookaheadTruePeakLimiter? = null
     private var loudnessMeter: LoudnessMeter? = null
+    private var multibandDynamics: MultibandDynamics? = null
     private var configuredEncoding = C.ENCODING_INVALID
     private var appliedSettings: BatAudioSettings? = null
     private var filters = emptyArray<Pair<Int, Coefficients>>()
@@ -98,6 +102,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
             LookaheadTruePeakLimiter(sampleRate, channels, TRUE_PEAK_CEILING, marginDb = 0.5f, lookaheadMs = 5f, releaseMs = settings.limiterReleaseMs)
         } else null
         loudnessMeter = if (formatSupported) LoudnessMeter(sampleRate, channels) else null
+        multibandDynamics = if (formatSupported) MultibandDynamics(sampleRate, channels) else null
         val initialOutputSamples = (truePeakLimiter?.latencyFrames ?: 0) * channels
         outputSamples = FloatArray(initialOutputSamples)
         outputRawBits = IntArray(initialOutputSamples)
@@ -119,6 +124,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
         outputRmsDb = -120f
         truePeakLimiter?.reset()
         loudnessMeter?.reset()
+        multibandDynamics?.reset()
         appliedSettings = null
     }
 
@@ -222,6 +228,11 @@ class BatAudioProcessor : BaseAudioProcessor() {
 
         if (config.enabled) processEffects(samples, frameCount, config)
         else compressorGainReductionDb = 0f
+        multibandDynamics?.let { dynamics ->
+            dynamics.thresholdDb = config.multibandThresholdDb
+            dynamics.ratio = config.multibandRatio
+            if (config.multibandEnabled && config.enabled) dynamics.process(samples, frameCount)
+        }
 
         val limiter = truePeakLimiter ?: return
         val expectedOutputFrames = limiter.outputFramesAfterInput(frameCount)
