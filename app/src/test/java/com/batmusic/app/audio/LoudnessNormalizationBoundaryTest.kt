@@ -50,7 +50,7 @@ class LoudnessNormalizationBoundaryTest {
         )
 
         assertNotNull(plan)
-        assertEquals(4f, plan!!.requestedGainDb, 0.001f)
+        assertEquals(6f, plan!!.requestedGainDb, 0.001f)
         assertEquals(0.5f, plan.appliedGainDb, 0.001f)
         assertEquals(-1.5f, plan.predictedTruePeakDbtp, 0.001f)
     }
