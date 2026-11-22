@@ -172,7 +172,8 @@ class BatAudioProcessor : BaseAudioProcessor() {
         }
         outputRmsDb = if (measuredSamples > 0) (20.0 * log10(sqrt(squareSum / measuredSamples).coerceAtLeast(1e-12))).toFloat() else -120f
         loudnessMeter?.process(outputSamples, drainedFrames)
-        // Match the live-block meter: report the measured sample peak without masking >0 dBFS.\n        outputPeak = peak
+        // Match the live-block meter: report the measured sample peak without masking >0 dBFS.
+        outputPeak = peak
         preLimiterPeak = limiter.blockPreLimiterPeak
         preLimiterRmsDb = limiter.blockPreLimiterRmsDb
         limiterActive = limiter.blockLimited
@@ -292,7 +293,8 @@ class BatAudioProcessor : BaseAudioProcessor() {
                 writtenFrames++
             }
         }
-        // Preserve over-range float readings so diagnostics cannot hide an unexpected overshoot.\n        loudnessMeter?.process(outputSamples, writtenFrames)
+        // Feed every emitted PCM block to the streaming loudness meter.
+        loudnessMeter?.process(outputSamples, writtenFrames)
         outputPeak = outputBlockPeak
         outputRmsDb = if (outputSampleCount > 0) (20.0 * log10(sqrt(outputSquareSum / outputSampleCount).coerceAtLeast(1e-12))).toFloat() else -120f
         preLimiterPeak = limiter.blockPreLimiterPeak
@@ -339,19 +341,25 @@ class BatAudioProcessor : BaseAudioProcessor() {
                 framePeak = maxOf(framePeak, abs(value))
             }
 
-            val coefficient = if (framePeak > compressorEnvelope) attackCoefficient else releaseCoefficient
-            compressorEnvelope = coefficient * compressorEnvelope + (1f - coefficient) * framePeak
-            val detectorDb = 8.68589f * ln(compressorEnvelope.coerceAtLeast(1e-5f))
-            val thresholdDb = 8.68589f * ln(threshold)
-            val overThresholdDb = detectorDb - thresholdDb
-            val kneeDb = 6f
-            val reductionDb = when {
-                !config.compressorEnabled || overThresholdDb <= -kneeDb / 2f -> 0f
-                overThresholdDb >= kneeDb / 2f -> overThresholdDb * (1f - 1f / ratio)
-                else -> ((overThresholdDb + kneeDb / 2f).pow(2) / (2f * kneeDb)) * (1f - 1f / ratio)
+            // Skip detector/log/ratio work entirely when compression is disabled.
+            val compressionGain = if (config.compressorEnabled) {
+                val coefficient = if (framePeak > compressorEnvelope) attackCoefficient else releaseCoefficient
+                compressorEnvelope = coefficient * compressorEnvelope + (1f - coefficient) * framePeak
+                val detectorDb = 8.68589f * ln(compressorEnvelope.coerceAtLeast(1e-5f))
+                val thresholdDb = 8.68589f * ln(threshold)
+                val overThresholdDb = detectorDb - thresholdDb
+                val kneeDb = 6f
+                val reductionDb = when {
+                    overThresholdDb <= -kneeDb / 2f -> 0f
+                    overThresholdDb >= kneeDb / 2f -> overThresholdDb * (1f - 1f / ratio)
+                    else -> ((overThresholdDb + kneeDb / 2f).pow(2) / (2f * kneeDb)) * (1f - 1f / ratio)
+                }
+                if (reductionDb > maximumReductionDb) maximumReductionDb = reductionDb
+                10f.pow(-reductionDb / 20f)
+            } else {
+                compressorEnvelope = 0f
+                1f
             }
-            if (reductionDb > maximumReductionDb) maximumReductionDb = reductionDb
-            val compressionGain = 10f.pow(-reductionDb / 20f)
             for (channel in 0 until channels) {
                 val sampleIndex = offset + channel
                 samples[sampleIndex] *= compressionGain * makeupGain

@@ -819,8 +819,17 @@ class MainActivity : ComponentActivity() {
             sendEffectSettings()
             return
         }
+        // Every built-in preset is a complete snapshot: never inherit dynamics
+        // or limiter values from the preset that happened to be selected before it.
         preampDb = 0f
         multibandEnabled = false
+        compressorEnabled = false
+        compressorThreshold = -12f
+        compressorRatio = 3f
+        compressorAttack = 6f
+        compressorRelease = 120f
+        compressorMakeup = 0f
+        limiterRelease = 120f
         when (name) {
             "Flat", "Original / Flat" -> {
                 equalizerEnabled = false

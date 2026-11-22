@@ -144,9 +144,16 @@ class PlaybackService : MediaSessionService() {
     private val meterHandler = Handler(Looper.getMainLooper())
     private val meterPublisher = object : Runnable {
         override fun run() {
-            publishEffectStatus()
-            meterHandler.postDelayed(this, 250L)
+            if (player.isPlaying) {
+                publishEffectStatus()
+                meterHandler.postDelayed(this, 250L)
+            }
         }
+    }
+
+    private fun startMeterPublisher() {
+        meterHandler.removeCallbacks(meterPublisher)
+        if (player.isPlaying) meterHandler.post(meterPublisher)
     }
     private val queueCheckpoint = object : Runnable {
         override fun run() {
@@ -166,6 +173,13 @@ class PlaybackService : MediaSessionService() {
         }
 
         override fun onEvents(player: Player, events: Player.Events) {
+            if (events.contains(Player.EVENT_IS_PLAYING_CHANGED) ||
+                events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED)) {
+                if (player.isPlaying) startMeterPublisher() else {
+                    meterHandler.removeCallbacks(meterPublisher)
+                    publishEffectStatus()
+                }
+            }
             val queueStateChanged = events.contains(Player.EVENT_TIMELINE_CHANGED) ||
                 events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION) ||
                 events.contains(Player.EVENT_POSITION_DISCONTINUITY) ||
@@ -327,7 +341,7 @@ class PlaybackService : MediaSessionService() {
 
         applyEffects()
         publishEffectStatus()
-        meterHandler.postDelayed(meterPublisher, 250L)
+        startMeterPublisher()
         meterHandler.postDelayed(queueCheckpoint, 1_000L)
     }
 
