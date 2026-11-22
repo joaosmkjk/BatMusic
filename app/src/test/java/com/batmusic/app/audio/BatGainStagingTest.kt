@@ -39,7 +39,8 @@ class BatGainStagingTest {
                 batBoost = 200
             )
         )
-        assertEquals(12f, plan.estimatedPositiveStackDb, 0.0001f)
+        assertEquals(0f, plan.estimatedPositiveStackDb, 0.0001f)
+        assertEquals(0f, plan.inputGainDb, 0.0001f)
     }
 
     @Test
