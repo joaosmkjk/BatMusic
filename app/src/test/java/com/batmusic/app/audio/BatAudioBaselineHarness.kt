@@ -74,7 +74,7 @@ object BatAudioBaselineHarness {
             appendLine("eq_max_abs_error_db=${fmt(eq.maxErrorDb)}; eq_mean_abs_error_db=${fmt(eq.meanErrorDb)}")
             appendLine("bypass_pcm_float_bit_exact=$bypassBitExact")
             appendLine("bypass_pcm16_bit_exact=$pcm16BypassBitExact")
-            appendLine("limiter_input=batBoost_200_percent(+6.0206dB), compressor_disabled, float_pcm, ceiling_code=0.8912509 (-1 dBFS), internal_margin_db=0, lookahead_ms=5")
+            appendLine("limiter_input=batBoost_200_percent(+6.0206dB), compressor_disabled, float_pcm, ceiling_code=0.8912509 (-1 dBFS), internal_margin_db=0.5, lookahead_ms=5")
             listOf(fullScale, interSample, square).forEach { metric ->
                 appendLine("${metric.name}: input_peak=${fmt(metric.inputPeak)} output_peak=${fmt(metric.outputPeak)} true_peak_8x=${fmt(metric.truePeak8x)} peak_reduction_db=${fmt(metric.peakReductionDb)} samples_abs_ge_1=${metric.samplesAtOrAboveOne}")
             }
