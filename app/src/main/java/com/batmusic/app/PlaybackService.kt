@@ -249,12 +249,12 @@ class PlaybackService : MediaSessionService() {
             compressorRatio = args.getFloat(PlaybackEffects.EXTRA_COMPRESSOR_RATIO, compressorRatio).coerceIn(1f, 12f)
             compressorAttackMs = args.getFloat(PlaybackEffects.EXTRA_COMPRESSOR_ATTACK, compressorAttackMs).coerceIn(1f, 100f)
             compressorReleaseMs = args.getFloat(PlaybackEffects.EXTRA_COMPRESSOR_RELEASE, compressorReleaseMs).coerceIn(10f, 1_000f)
-            compressorMakeupDb = args.getFloat(PlaybackEffects.EXTRA_COMPRESSOR_MAKEUP, compressorMakeupDb).coerceIn(-12f, 12f)
+            compressorMakeupDb = args.getFloat(PlaybackEffects.EXTRA_COMPRESSOR_MAKEUP, compressorMakeupDb).coerceIn(-12f, 24f)
             limiterReleaseMs = args.getFloat(PlaybackEffects.EXTRA_LIMITER_RELEASE, limiterReleaseMs).coerceIn(20f, 1_000f)
             audioEngine.setVisualizerMode(args.getString(PlaybackEffects.EXTRA_VISUALIZER_MODE, audioEngine.visualizerMode) ?: "OFF")
             audioABOriginal = args.getBoolean(PlaybackEffects.EXTRA_AUDIO_AB_ORIGINAL, audioABOriginal)
             batAudioEnabled = args.getBoolean(PlaybackEffects.EXTRA_BAT_ENABLED, batAudioEnabled)
-            batBoost = args.getInt(PlaybackEffects.EXTRA_BAT_BOOST, batBoost).coerceIn(100, 200)
+            batBoost = args.getInt(PlaybackEffects.EXTRA_BAT_BOOST, batBoost).coerceIn(100, 300)
             args.getIntArray(PlaybackEffects.EXTRA_EQ_GAINS)?.let { incoming ->
                 bandGainsTenthDb = IntArray(PlaybackEffects.bandFrequenciesHz.size) { index ->
                     incoming.getOrElse(index) { 0 }.coerceIn(-120, 120)
@@ -471,7 +471,7 @@ class PlaybackService : MediaSessionService() {
         val preferences = getSharedPreferences("batmusic", MODE_PRIVATE)
         equalizerEnabled = preferences.getBoolean("eq_enabled", false)
         bassBoostEnabled = preferences.getBoolean("bass_enabled", false)
-        batBoost = preferences.getInt("bat_boost", 100).let { if (it < 100) 100 + it else it }.coerceIn(100, 200)
+        batBoost = preferences.getInt("bat_boost", 100).let { if (it < 100) 100 + it else it }.coerceIn(100, 300)
         bassStrength = preferences.getInt("bass_strength", 0).coerceIn(0, 1000)
         preampDb = preferences.getFloat("preamp_db_float", preferences.getInt("preamp_db", 0).toFloat()).coerceIn(0f, 24f)
         compressorEnabled = preferences.getBoolean("compressor_enabled", false)
@@ -481,7 +481,7 @@ class PlaybackService : MediaSessionService() {
         compressorRatio = preferences.getFloat("compressor_ratio", 3f).coerceIn(1f, 12f)
         compressorAttackMs = preferences.getFloat("compressor_attack", 6f).coerceIn(1f, 100f)
         compressorReleaseMs = preferences.getFloat("compressor_release", 120f).coerceIn(10f, 1_000f)
-        compressorMakeupDb = preferences.getFloat("compressor_makeup", 0f).coerceIn(-12f, 12f)
+        compressorMakeupDb = preferences.getFloat("compressor_makeup", 0f).coerceIn(-12f, 24f)
         batAudioEnabled = preferences.getBoolean(
             "bat_audio_enabled", equalizerEnabled || bassBoostEnabled || preampDb != 0f
         )
