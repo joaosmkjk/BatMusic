@@ -400,100 +400,88 @@ private fun HomeScreen(
     homePanelOverlay: Float, homePanelRadius: Float, homePanelCrop: Boolean, onChooseHomePanel: () -> Unit
 ) {
     val currentTrack = songs.firstOrNull { it.second.id == currentSongId }
-    val recentTracks = history.take(5).mapNotNull { id -> songs.firstOrNull { it.second.id == id } }
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            AvatarMark(avatarUri, Modifier.size(46.dp), avatarCircular, avatarZoom, avatarX, avatarY)
-            Column(Modifier.weight(1f).padding(start = 11.dp)) {
-                Text("BATMUSIC", color = MaterialTheme.colorScheme.onBackground, fontSize = 21.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
-                Text("LOCAL AUDIO PLAYER", color = MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.7.sp)
+            AvatarMark(avatarUri, Modifier.size(48.dp), avatarCircular, avatarZoom, avatarX, avatarY)
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                Text("BATMUSIC", color = MaterialTheme.colorScheme.onBackground,
+                    fontSize = 22.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
+                Text("> YOUR MUSIC", color = MaterialTheme.colorScheme.primary,
+                    fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
             }
             RoundAction("⚙", "Configurações", onOpenSettings)
         }
+
         Box(
-            Modifier.fillMaxWidth().height((homePanelHeight * if (immersiveHome) 1f else 0.78f).coerceIn(190f, 620f).dp)
-                .clip(RoundedCornerShape(homePanelRadius.dp)).background(MaterialTheme.colorScheme.surface)
+            Modifier.fillMaxWidth()
+                .height((homePanelHeight * if (immersiveHome) 1f else .72f).coerceIn(180f, 620f).dp)
+                .clip(RoundedCornerShape(homePanelRadius.dp))
+                .background(MaterialTheme.colorScheme.surface)
                 .clickable(onClick = onChooseHomePanel)
         ) {
             if (homePanelUri != null) {
                 Artwork(Uri.parse(homePanelUri), Modifier.fillMaxSize(), "Painel principal do BatMusic",
                     alpha = homePanelOpacity, shape = RoundedCornerShape(homePanelRadius.dp),
-                    contentScale = if (homePanelCrop) androidx.compose.ui.layout.ContentScale.Crop else androidx.compose.ui.layout.ContentScale.Fit)
-                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = homePanelOverlay.coerceAtLeast(.28f))))
+                    contentScale = if (homePanelCrop) androidx.compose.ui.layout.ContentScale.Crop
+                        else androidx.compose.ui.layout.ContentScale.Fit)
+                if (homePanelOverlay > 0f) {
+                    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = homePanelOverlay)))
+                }
             } else {
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant))
+                Text("＋", Modifier.align(Alignment.TopEnd).padding(18.dp),
+                    color = MaterialTheme.colorScheme.primary, fontSize = 26.sp, fontWeight = FontWeight.Light)
             }
-            Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("BATMUSIC  /  YOUR SOUND", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp)
+
+            Column(
+                Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(22.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("BATMUSIC  /  LOCAL AUDIO", color = MaterialTheme.colorScheme.primary,
+                    fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp)
                 Text(
-                    if (currentTrack != null) currentTrack.second.title else "SUA MÚSICA. SEU RITMO.",
+                    currentTrack?.second?.title ?: "SUA MÚSICA. SEU RITMO.",
                     color = if (homePanelUri != null) Color.White else MaterialTheme.colorScheme.onSurface,
-                    fontSize = 24.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis
+                    fontSize = 25.sp, fontWeight = FontWeight.Black, maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    if (currentTrack != null) currentTrack.second.artist else "Sua biblioteca, do seu jeito.",
-                    color = if (homePanelUri != null) Color.White.copy(alpha = .82f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    currentTrack?.second?.artist ?: "Uma experiência sonora do seu jeito.",
+                    color = if (homePanelUri != null) Color.White.copy(alpha = .84f)
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (currentTrack != null) Button(onClick = onOpenNowPlaying) { Text(if (isPlaying) "ABRIR PLAYER" else "VER FAIXA") }
-                    else Button(onClick = onChooseHomePanel) { Text(if (homePanelUri == null) "PERSONALIZAR PAINEL" else "TROCAR IMAGEM") }
-                    Text("${songs.size} FAIXAS", color = if (homePanelUri != null) Color.White.copy(alpha = .8f) else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    if (currentTrack != null) {
+                        Button(onClick = onOpenNowPlaying) {
+                            Text(if (isPlaying) "ABRIR PLAYER" else "IR PARA O PLAYER")
+                        }
+                    } else {
+                        Button(onClick = onChooseHomePanel) {
+                            Text(if (homePanelUri == null) "PERSONALIZAR HOME" else "TROCAR IMAGEM")
+                        }
+                    }
+                    if (currentTrack != null && isPlaying) {
+                        Text("● TOCANDO", color = if (homePanelUri != null) Color.White
+                            else MaterialTheme.colorScheme.primary,
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
-            if (homePanelUri == null) Text("＋", Modifier.align(Alignment.TopEnd).padding(16.dp), color = MaterialTheme.colorScheme.primary, fontSize = 24.sp, fontWeight = FontWeight.Light)
         }
+
         if (!hasPermission) {
-            EmptyPanel("Sua biblioteca começa aqui", "Permita o acesso às músicas para montar suas playlists.", "Conceder acesso", onRequestPermission)
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("SUA BIBLIOTECA", color = MaterialTheme.colorScheme.onBackground, fontSize = 17.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-                        Text("Acesso rápido à sua coleção", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                    }
-                    TextButton(onClick = { onOpenLibrary("Playlists") }) { Text("ABRIR TUDO  →") }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Playlists", "Pastas", "Favoritos", "Histórico").forEach { destination ->
-                        AssistChip(onClick = { onOpenLibrary(destination) }, label = { Text(destination, maxLines = 1) },
-                            colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.surface, labelColor = MaterialTheme.colorScheme.onSurface))
-                    }
-                }
-            }
-            Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface)
-                    .clickable { onOpenLibrary("Playlists") }.padding(17.dp),
-                verticalArrangement = Arrangement.spacedBy(5.dp)
-            ) {
-                Text("COLEÇÃO LOCAL", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)
-                Text("${songs.size} faixas prontas para tocar", color = MaterialTheme.colorScheme.onSurface, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("Organize por playlists, pastas e favoritos.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-            }
-            if (recentTracks.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("CONTINUE OUVINDO", color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
-                            Text("Retome de onde você parou", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                        }
-                        TextButton(onClick = { onOpenLibrary("Histórico") }) { Text("VER TUDO") }
-                    }
-                    recentTracks.forEach { (index, song) ->
-                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp)).background(MaterialTheme.colorScheme.surface)
-                            .clickable { onPlaySong(index) }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Artwork(song.artworkUri, Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)), song.title)
-                            Column(Modifier.weight(1f).padding(horizontal = 11.dp)) {
-                                Text(song.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(song.artist, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            Text("▶", color = MaterialTheme.colorScheme.primary, fontSize = 15.sp)
-                        }
-                    }
-                }
+            PanelCard {
+                Text("ÁUDIO LOCAL DESATIVADO", color = MaterialTheme.colorScheme.onBackground,
+                    fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("Permita o acesso para reproduzir suas músicas neste dispositivo.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                Button(onClick = onRequestPermission) { Text("PERMITIR ACESSO") }
             }
         }
     }
