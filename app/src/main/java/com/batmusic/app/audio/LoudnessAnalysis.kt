@@ -176,14 +176,12 @@ class LoudnessMeter(
             else (LUFS_OFFSET + 10.0 * log10(energy)).toFloat()
 
         private fun channelWeight(index: Int, channels: Int): Double {
-            // BS.1770: LFE is excluded; surround channels receive +1.5 dB.
-            return when {
-                channels == 6 && index == 3 -> 0.0
-                channels == 6 && index >= 4 -> 1.41
-                channels == 8 && index == 3 -> 0.0
-                channels == 8 && index >= 4 -> 1.41
-                else -> 1.0
-            }
+            // A channel count does not identify speaker positions or LFE.
+            // Android decoder output may use different channel orders, so applying
+            // BS.1770 surround/LFE weights by index would silently mis-measure it.
+            // Keep generic playback metering unweighted; offline normalization
+            // explicitly declines multichannel until a trustworthy channel mask exists.
+            return 1.0
         }
 
         private fun makeHighPassCoefficients(fs: Double, frequency: Double, q: Double): Coefficients {

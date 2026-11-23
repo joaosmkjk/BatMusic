@@ -45,6 +45,7 @@ internal fun PlaylistLibraryScreen(
     var name by remember { mutableStateOf("") }
     var adding by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(setOf<Long>()) }
+    var addQuery by remember { mutableStateOf("") }
     var deleteConfirm by remember { mutableStateOf<String?>(null) }
     val playlist = playlists.firstOrNull { it.id == selected }
     BackHandler(enabled = playlist != null || adding || dialog != null || deleteConfirm != null || selectedFolder != null || section != "Playlists") {
@@ -82,7 +83,7 @@ internal fun PlaylistLibraryScreen(
                 TextButton(onClick = { onChooseArtwork(playlist.id) }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Capa") }
                 TextButton(onClick = { onPlay(playlist.id) }, enabled = playlist.songIds.any { id -> songs.any { it.id == id } }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("▶ Tocar") }
                 TextButton(onClick = { onShuffle(playlist.id) }, enabled = playlist.songIds.any { id -> songs.any { it.id == id } }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("⤨ Aleatório") }
-                TextButton(onClick = { adding = true; selectedIds = emptySet() }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("＋ Faixas") }
+                TextButton(onClick = { adding = true; selectedIds = emptySet(); addQuery = "" }, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("＋ Faixas") }
             }
         }
         if (playlist == null) {
@@ -196,7 +197,7 @@ internal fun PlaylistLibraryScreen(
                     EmptyPanel(
                         if (playlist.songIds.isEmpty()) "Playlist vazia" else "Faixas indisponíveis",
                         if (playlist.songIds.isEmpty()) "Adicione músicas locais para começar." else "As faixas continuam salvas, mas não foram localizadas no catálogo atual.",
-                        "＋ Adicionar músicas", { adding = true }, Modifier.fillMaxWidth()
+                        "＋ Adicionar músicas", { adding = true; selectedIds = emptySet(); addQuery = "" }, Modifier.fillMaxWidth()
                     )
                 }
                 items(playlist.songIds, key = { "unresolved-${playlist.id}-$it" }) { missingId ->
@@ -264,17 +265,66 @@ internal fun PlaylistLibraryScreen(
         }) { Text("Salvar") } }, dismissButton = { TextButton(onClick = { dialog = null }) { Text("Cancelar") } }
     )
     if (adding && playlist != null) AlertDialog(
-        onDismissRequest = { adding = false }, title = { Text("Adicionar faixas") },
-        text = { LazyColumn(Modifier.heightIn(max = 420.dp)) { items(songs, key = { it.id }) { song ->
-            val checked = song.id in selectedIds || song.id in playlist.songIds
-            Row(Modifier.fillMaxWidth().then(if (song.id !in playlist.songIds) Modifier.clickable {
-                selectedIds = if (song.id in selectedIds) selectedIds - song.id else selectedIds + song.id
-            } else Modifier).padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked, onCheckedChange = { selectedIds = if (it) selectedIds + song.id else selectedIds - song.id }, enabled = song.id !in playlist.songIds)
-                Column { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis); Text(song.artist, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        onDismissRequest = { adding = false },
+        title = { Text("Adicionar faixas") },
+        text = {
+            val filteredAddable = songs.filter { song ->
+                song.title.contains(addQuery, true) || song.artist.contains(addQuery, true) ||
+                    song.album.contains(addQuery, true) || song.folderPath.contains(addQuery, true)
             }
-        } } },
-        confirmButton = { TextButton(onClick = { onAddSongs(playlist.id, selectedIds.filterNot { it in playlist.songIds }); adding = false }, enabled = selectedIds.any { it !in playlist.songIds }) { Text("Adicionar (${selectedIds.count { it !in playlist.songIds }})") } },
+            Column {
+                OutlinedTextField(
+                    value = addQuery, onValueChange = { addQuery = it },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    placeholder = { Text("Buscar música, artista ou álbum") }
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    TextButton(onClick = {
+                        selectedIds = selectedIds + filteredAddable.filterNot { it.id in playlist.songIds }.map { it.id }
+                    }, enabled = filteredAddable.any { it.id !in playlist.songIds }) { Text("Selecionar resultados") }
+                    TextButton(onClick = { selectedIds = emptySet() }, enabled = selectedIds.isNotEmpty()) { Text("Limpar seleção") }
+                }
+                Text(
+                    "${selectedIds.count { it !in playlist.songIds }} selecionada(s) • ${filteredAddable.count { it.id !in playlist.songIds }} disponível(is)",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp
+                )
+                if (filteredAddable.isEmpty()) {
+                    Text("Nenhuma música corresponde à busca.", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 18.dp))
+                } else LazyColumn(Modifier.heightIn(max = 340.dp)) {
+                    items(filteredAddable, key = { it.id }) { song ->
+                        val alreadyAdded = song.id in playlist.songIds
+                        val checked = song.id in selectedIds || alreadyAdded
+                        Row(
+                            Modifier.fillMaxWidth().then(if (!alreadyAdded) Modifier.clickable {
+                                selectedIds = if (song.id in selectedIds) selectedIds - song.id else selectedIds + song.id
+                            } else Modifier).padding(vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = checked,
+                                onCheckedChange = { selectedIds = if (it) selectedIds + song.id else selectedIds - song.id },
+                                enabled = !alreadyAdded
+                            )
+                            Column(Modifier.weight(1f)) {
+                                Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    song.artist + if (alreadyAdded) " • Já adicionada" else " • " + song.album,
+                                    fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onAddSongs(playlist.id, selectedIds.filterNot { it in playlist.songIds }); adding = false },
+                enabled = selectedIds.any { it !in playlist.songIds }
+            ) { Text("Adicionar (${selectedIds.count { it !in playlist.songIds }})") }
+        },
         dismissButton = { TextButton(onClick = { adding = false }) { Text("Cancelar") } }
     )
     deleteConfirm?.let { id -> AlertDialog(onDismissRequest = { deleteConfirm = null }, title = { Text("Excluir playlist?") }, text = { Text("As músicas do dispositivo não serão removidas.") },

@@ -63,6 +63,7 @@ object BatAudioBaselineHarness {
         val pcm16BypassBitExact = measurePcm16BypassBitExact()
         val tailPreserved = measureTailPreserved()
         val gainLinearityDb = measureGainLinearityDb()
+        val limiterBypassKeepsEffectsDb = measureEffectsSurviveLimiterBypass()
         val compressorImpactDb = measureCompressorImpactDb()
         val meterRms = measureMeterRms()
         val pcm16ProcessedSafe = measurePcm16ProcessedSafe()
@@ -82,6 +83,7 @@ object BatAudioBaselineHarness {
             rateSafety.forEach { appendLine("${it.name}: true_peak_8x=${fmt(it.truePeak8x)}; output_peak=${fmt(it.outputPeak)}") }
             appendLine("stereo_linked_true_peak_8x=${fmt(stereo.truePeak)}; channel_peak_ratio=${fmt(stereo.channelPeakRatio)}")
             appendLine("batboost_200_gain_error_db=${fmt(gainLinearityDb)}")
+            appendLine("limiter_bypass_preserves_dsp_gain_db=${fmt(limiterBypassKeepsEffectsDb)}")
             appendLine("compressor_default_enabled=${BatAudioSettings().compressorEnabled}")
             appendLine("compressor_on_vs_transparent_rms_delta_db=${fmt(compressorImpactDb)}")
             appendLine("meter_pre_limiter_rms_db=${fmt(meterRms.first.toDouble())}; meter_output_rms_db=${fmt(meterRms.second.toDouble())}")
@@ -148,6 +150,16 @@ object BatAudioBaselineHarness {
         return 20.0 * log10(outputRms / inputRms) - 6.0206
     }
 
+
+    private fun measureEffectsSurviveLimiterBypass(): Double {
+        val sampleRate = 48_000
+        val input = FloatArray(12_288) { i -> (0.1 * sin(2.0 * PI * 1_000.0 * i / sampleRate)).toFloat() }
+        val output = process(
+            BatAudioSettings(enabled = true, limiterEnabled = false, batBoost = 200, compressorEnabled = false),
+            sampleRate, input
+        )
+        return 20.0 * log10(rms(output, 2_016) / rms(input, 2_016))
+    }
 
     /** Positive result means the old default compressor made BATGAIN quieter. */
     private fun measureCompressorImpactDb(): Double {
@@ -225,7 +237,11 @@ object BatAudioBaselineHarness {
                 val inputRms = rms(input, start)
                 val outputRms = rms(output, start)
                 val measuredDb = 20.0 * log10(outputRms / inputRms)
-                val referenceDb = eqGains.indices.sumOf { band ->
+                // Include the intentional BATLOUD headroom attenuation in the expected
+                // response. Without it, the harness mistakes a broadband safety gain
+                // reduction for an equalizer frequency-response error.
+                val gainStagingDb = BatGainStaging.plan(settings).inputGainDb.toDouble()
+                val referenceDb = gainStagingDb + eqGains.indices.sumOf { band ->
                     biquadMagnitudeDb(frequency.toDouble(), bandHz[band].toDouble(), eqGains[band].toDouble(), sampleRate.toDouble(), 1.0)
                 }
                 val error = abs(measuredDb - referenceDb)
@@ -501,6 +517,8 @@ class BatAudioBaselineTest {
         assertTrue("True peak must remain at or below the -1 dBFS target", truePeaks.all { it <= 0.8912509 + 1e-4 })
         assertTrue("Linked stereo true peak must remain at or below -1 dBFS", stereoPeak <= 0.8912509 + 1e-4)
         assertTrue("BATBOOST linear gain error must remain within 0.01 dB", abs(gainError) <= 0.01)
+        val limiterBypassGain = Regex("limiter_bypass_preserves_dsp_gain_db=(-?[0-9.]+)").find(report)!!.groupValues[1].toDouble()
+        assertTrue("Disabling the limiter must not bypass BATLOUD effects", abs(limiterBypassGain - 6.0206) <= 0.02)
         assertTrue("New BATBOOST default must not compress the signal", report.contains("compressor_default_enabled=false"))
         val compressorDelta = Regex("compressor_on_vs_transparent_rms_delta_db=(-?[0-9.]+)").find(report)!!.groupValues[1].toDouble()
         assertTrue("The diagnostic signal should expose the old compressor's gain cancellation", compressorDelta > 0.5)

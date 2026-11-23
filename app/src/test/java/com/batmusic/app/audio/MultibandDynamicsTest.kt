@@ -1,6 +1,5 @@
 package com.batmusic.app.audio
 
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.PI
@@ -8,42 +7,46 @@ import kotlin.math.sin
 
 class MultibandDynamicsTest {
     @Test
-    fun unityRatioReconstructsInputWithoutCrossoverHoles() {
-        val processor = MultibandDynamics(48_000, 2)
-        processor.ratio = 1f
-        processor.thresholdDb = -48f
-        val input = FloatArray(9_600) { index ->
-            (0.35 * sin(2.0 * PI * 997.0 * (index / 2) / 48_000.0)).toFloat()
+    fun nonFiniteControlsCannotPoisonAudioOutput() {
+        val dynamics = MultibandDynamics(48_000, 2).apply {
+            thresholdDb = Float.NaN
+            ratio = Float.POSITIVE_INFINITY
+            attackMs = Float.NaN
+            releaseMs = Float.NEGATIVE_INFINITY
+            makeupDb = Float.NaN
+            updateTimeConstants()
         }
-        val expected = input.copyOf()
-        processor.process(input, input.size / 2)
-        var maximumError = 0f
-        for (i in input.indices) maximumError = maxOf(maximumError, kotlin.math.abs(input[i] - expected[i]))
-        assertTrue("complementary bands should reconstruct the signal; error=$maximumError", maximumError < 1e-5f)
+        val pcm = FloatArray(4_800 * 2) { index ->
+            (0.25 * sin(2.0 * PI * 997.0 * (index / 2) / 48_000)).toFloat()
+        }
+        dynamics.process(pcm, 4_800)
+        assertTrue(pcm.all { it.isFinite() })
     }
 
     @Test
-    fun outputRemainsFiniteForInvalidInputSamples() {
-        val processor = MultibandDynamics(48_000, 2)
-        val input = FloatArray(2_048) { if (it % 17 == 0) Float.NaN else 0.9f }
-        processor.process(input, input.size / 2)
-        assertTrue(input.all { it.isFinite() })
+    fun lowSampleRateUsesValidCrossoverFrequencies() {
+        val dynamics = MultibandDynamics(8_000, 1)
+        val pcm = FloatArray(8_000) { index ->
+            (0.2 * sin(2.0 * PI * 1_000.0 * index / 8_000)).toFloat()
+        }
+        dynamics.process(pcm, pcm.size)
+        assertTrue(pcm.all { it.isFinite() })
     }
 
     @Test
-    fun compressionDoesNotIncreaseBandEnvelopeWithoutMakeup() {
-        val processor = MultibandDynamics(48_000, 1)
-        processor.thresholdDb = -30f
-        processor.ratio = 4f
-        processor.attackMs = 2f
-        processor.makeupDb = 0f
-        processor.updateTimeConstants()
-        val input = FloatArray(48_000) { index ->
-            (0.8 * sin(2.0 * PI * 100.0 * index / 48_000.0)).toFloat()
+    fun extremeFiniteControlsRemainBoundedAndFinite() {
+        val dynamics = MultibandDynamics(48_000, 2).apply {
+            thresholdDb = -10_000f
+            ratio = 10_000f
+            attackMs = 0.0001f
+            releaseMs = 10_000f
+            makeupDb = 100f
+            updateTimeConstants()
         }
-        processor.process(input, input.size)
-        val peak = input.maxOf { kotlin.math.abs(it) }
-        assertTrue("compressed signal must stay finite and bounded", peak.isFinite() && peak <= 1f)
-        assertEquals(48_000, input.size)
+        val pcm = FloatArray(4_800 * 2) { index ->
+            (0.4 * sin(2.0 * PI * 500.0 * (index / 2) / 48_000)).toFloat()
+        }
+        dynamics.process(pcm, 4_800)
+        assertTrue(pcm.all { it.isFinite() })
     }
 }

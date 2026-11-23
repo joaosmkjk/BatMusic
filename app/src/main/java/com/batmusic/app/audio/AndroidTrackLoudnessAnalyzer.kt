@@ -96,8 +96,11 @@ class AndroidTrackLoudnessAnalyzer(
                         val format = codec.outputFormat
                         sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
                         channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-                        require(sampleRate >= 8_000 && channels in 1..8) {
-                            "Unsupported decoded audio format: $sampleRate Hz, $channels channels"
+                        // MediaCodec exposes channel count here, but not a reliable
+                        // speaker-position map across all codecs/devices. Do not guess
+                        // LFE or surround weights for loudness normalization.
+                        require(sampleRate >= 8_000 && channels in 1..2) {
+                            "Loudness normalization requires mono/stereo PCM; channel layout is ambiguous"
                         }
                         meter = LoudnessMeter(sampleRate, channels)
                         truePeak = OversampledTruePeakMeter(channels)

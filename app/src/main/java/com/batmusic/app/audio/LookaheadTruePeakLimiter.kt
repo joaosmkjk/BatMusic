@@ -26,6 +26,7 @@ internal class LookaheadTruePeakLimiter(
     private val audioRing = FloatArray(ringFrameCount * channels)
     private val rawRing = IntArray(ringFrameCount * channels)
     private val activeRing = BooleanArray(ringFrameCount)
+    private val limiterEnabledRing = BooleanArray(ringFrameCount)
     private val peakDequeIndices = LongArray(lookaheadFrames + 2)
     private val peakDequeValues = FloatArray(lookaheadFrames + 2)
     private val zeroFrame = FloatArray(channels)
@@ -83,7 +84,8 @@ internal class LookaheadTruePeakLimiter(
 
     /** Called by the settings publisher, not from queueInput. */
     fun setReleaseMs(releaseMs: Float) {
-        releaseCoefficient = exp(-1f / (sampleRate * releaseMs.coerceIn(10f, 1_000f) / 1_000f))
+        val safeReleaseMs = releaseMs.takeIf { it.isFinite() }?.coerceIn(10f, 1_000f) ?: 120f
+        releaseCoefficient = exp(-1f / (sampleRate * safeReleaseMs / 1_000f))
     }
 
     fun outputFramesAfterInput(inputFrameCount: Int): Int =
@@ -94,20 +96,21 @@ internal class LookaheadTruePeakLimiter(
         inputSamples: FloatArray,
         inputOffset: Int,
         rawInput: IntArray,
-        active: Boolean,
+        processingActive: Boolean,
+        limiterEnabled: Boolean,
         outputSamples: FloatArray,
         outputRaw: IntArray,
         outputOffset: Int,
         outputBypassed: BooleanArray,
         outputFrameOffset: Int
-    ): Boolean = pushFrame(inputSamples, inputOffset, rawInput, active, true, outputSamples, outputRaw, outputOffset, outputBypassed, outputFrameOffset)
+    ): Boolean = pushFrame(inputSamples, inputOffset, rawInput, processingActive, limiterEnabled, true, outputSamples, outputRaw, outputOffset, outputBypassed, outputFrameOffset)
 
     /** Emits the buffered tail using zero padding for the interpolation/lookahead context. */
     fun drain(outputSamples: FloatArray, outputRaw: IntArray, outputBypassed: BooleanArray): Int {
         var writtenFrames = 0
         var paddingFrames = 0
         while (pendingFrames > 0 && paddingFrames < delayFrames) {
-            if (pushFrame(zeroFrame, 0, zeroRawFrame, false, false, outputSamples, outputRaw,
+            if (pushFrame(zeroFrame, 0, zeroRawFrame, false, false, false, outputSamples, outputRaw,
                     writtenFrames * channels, outputBypassed, writtenFrames)) {
                 writtenFrames++
             }
@@ -121,7 +124,8 @@ internal class LookaheadTruePeakLimiter(
         inputSamples: FloatArray,
         inputOffset: Int,
         rawInput: IntArray,
-        active: Boolean,
+        processingActive: Boolean,
+        limiterEnabled: Boolean,
         isRealInput: Boolean,
         outputSamples: FloatArray,
         outputRaw: IntArray,
@@ -136,14 +140,15 @@ internal class LookaheadTruePeakLimiter(
             audioRing[ringOffset + channel] = inputSamples[inputOffset + channel]
             rawRing[ringOffset + channel] = rawInput[inputOffset + channel]
         }
-        activeRing[ringIndex] = active && isRealInput
+        activeRing[ringIndex] = processingActive && isRealInput
+        limiterEnabledRing[ringIndex] = limiterEnabled && isRealInput
         timelineFrames++
         if (isRealInput) realFrames++
 
         val segmentIndex = frameIndex - INTERPOLATOR_FUTURE_FRAMES
         if (segmentIndex >= 0L) {
             val segmentSlot = slot(segmentIndex)
-            val peak = if (activeRing[segmentSlot]) estimateSegmentTruePeak(segmentIndex) else 0f
+            val peak = if (activeRing[segmentSlot] && limiterEnabledRing[segmentSlot]) estimateSegmentTruePeak(segmentIndex) else 0f
             pushPeak(segmentIndex, peak)
         }
 
@@ -153,8 +158,8 @@ internal class LookaheadTruePeakLimiter(
         while (dequeHead < dequeTail && peakDequeIndices[dequeSlot(dequeHead)] < outputIndex) dequeHead++
         val windowPeak = if (dequeHead < dequeTail) peakDequeValues[dequeSlot(dequeHead)] else 0f
         val peakFrame = if (dequeHead < dequeTail) peakDequeIndices[dequeSlot(dequeHead)] else outputIndex
-        val targetGain = if (windowPeak > targetCeiling) targetCeiling / windowPeak else 1f
         val outputSlot = slot(outputIndex)
+        val targetGain = if (limiterEnabledRing[outputSlot] && windowPeak > targetCeiling) targetCeiling / windowPeak else 1f
         val outputRingOffset = outputSlot * channels
         lastOutputBypassed = !activeRing[outputSlot]
         outputBypassed[outputFrameOffset] = lastOutputBypassed
@@ -171,6 +176,14 @@ internal class LookaheadTruePeakLimiter(
         }
 
         if (lastOutputBypassed) {
+            limiterGain = 1f
+            for (channel in 0 until channels) {
+                outputSamples[outputOffset + channel] = audioRing[outputRingOffset + channel]
+                outputRaw[outputOffset + channel] = rawRing[outputRingOffset + channel]
+            }
+        } else if (!limiterEnabledRing[outputSlot]) {
+            // The limiter switch controls only peak limiting. Keep already-processed
+            // PCM (EQ, gain, compression, normalization) instead of raw bypass.
             limiterGain = 1f
             for (channel in 0 until channels) {
                 outputSamples[outputOffset + channel] = audioRing[outputRingOffset + channel]
