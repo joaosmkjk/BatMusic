@@ -35,7 +35,7 @@ class AudioPresetRepository(context: Context) {
                 add(SavedAudioPreset(
                     name = row.optString("name").trim().take(32).ifBlank { "Preset" },
                     audioEnabled = row.optBoolean("audioEnabled", true),
-                    batBoost = row.optInt("batBoost", 100).coerceIn(100, 200),
+                    batBoost = row.optInt("batBoost", 100).coerceIn(100, 300),
                     equalizerEnabled = row.optBoolean("eqEnabled", false),
                     gainsTenthDb = (0 until 10).map { gains.optInt(it).coerceIn(-120, 120) },
                     bassEnabled = row.optBoolean("bassEnabled", false),
@@ -46,7 +46,7 @@ class AudioPresetRepository(context: Context) {
                     ratio = row.optDouble("ratio", 3.0).toFloat().coerceIn(1f, 12f),
                     attackMs = row.optDouble("attackMs", 6.0).toFloat().coerceIn(1f, 100f),
                     releaseMs = row.optDouble("releaseMs", 120.0).toFloat().coerceIn(10f, 1000f),
-                    makeupDb = row.optDouble("makeupDb", 0.0).toFloat().coerceIn(-12f, 12f),
+                    makeupDb = row.optDouble("makeupDb", 0.0).toFloat().coerceIn(-12f, 24f),
                     limiterReleaseMs = row.optDouble("limiterReleaseMs", 120.0).toFloat().coerceIn(20f, 1_000f)
                 ))
             }
@@ -88,6 +88,6 @@ class AudioPresetRepository(context: Context) {
     }
 
     companion object {
-        private val BUILT_IN_PRESETS = setOf("Original / Flat", "Rock", "Metal", "Classical", "Electronic", "Vocal", "Custom", "Alternative / Indie", "Bass Focus", "BATLOUD")
+        private val BUILT_IN_PRESETS = setOf("Original / Flat", "Rock", "Metal", "Classical", "Electronic", "Vocal", "Custom", "Alternative / Indie", "Bass Focus", "BATLOUD", "Funk BR", "Funk Melody", "Funk Mandelão")
     }
 }

@@ -60,7 +60,7 @@ import kotlin.math.roundToInt
 import android.widget.Toast
 
 private val librarySections = listOf("Playlists", "Pastas", "Favoritos", "Histórico")
-private val audioPresets = listOf("Original / Flat", "Rock", "Metal", "Classical", "Electronic", "Vocal", "BATLOUD", "Custom")
+private val audioPresets = listOf("Original / Flat", "Rock", "Metal", "Classical", "Electronic", "Vocal", "Funk BR", "Funk Melody", "Funk Mandelão", "BATLOUD", "Custom")
 private val LocalBatAnimations = staticCompositionLocalOf { true }
 private val LocalBatAnimationSpeed = staticCompositionLocalOf { 1f }
 private val LocalBatCardRadius = staticCompositionLocalOf { 5f }
@@ -399,75 +399,89 @@ private fun HomeScreen(
     homePanelUri: String?, immersiveHome: Boolean, homePanelHeight: Float, homePanelOpacity: Float,
     homePanelOverlay: Float, homePanelRadius: Float, homePanelCrop: Boolean, onChooseHomePanel: () -> Unit
 ) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+    val currentTrack = songs.firstOrNull { it.second.id == currentSongId }
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AvatarMark(avatarUri, Modifier.size(48.dp), avatarCircular, avatarZoom, avatarX, avatarY)
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text("BATMUSIC", color = MaterialTheme.colorScheme.onBackground, fontSize = 22.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
-                Text("> YOUR MUSIC", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                Text("BATMUSIC", color = MaterialTheme.colorScheme.onBackground,
+                    fontSize = 22.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
+                Text("> YOUR MUSIC", color = MaterialTheme.colorScheme.primary,
+                    fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
             }
             RoundAction("⚙", "Configurações", onOpenSettings)
         }
-        Box(Modifier.fillMaxWidth().height((homePanelHeight * if (immersiveHome) 1f else 0.72f).coerceIn(160f, 620f).dp).clip(RoundedCornerShape(homePanelRadius.dp)).background(MaterialTheme.colorScheme.surface)
-            .then(if (homePanelUri != null) Modifier.clickable(onClick = onChooseHomePanel) else Modifier)) {
+
+        Box(
+            Modifier.fillMaxWidth()
+                .height((homePanelHeight * if (immersiveHome) 1f else .72f).coerceIn(180f, 620f).dp)
+                .clip(RoundedCornerShape(homePanelRadius.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .clickable(onClick = onChooseHomePanel)
+        ) {
             if (homePanelUri != null) {
-                Artwork(Uri.parse(homePanelUri), Modifier.fillMaxSize(), "Imagem principal da Home", alpha = homePanelOpacity,
-                    shape = RoundedCornerShape(homePanelRadius.dp),
-                    contentScale = if (homePanelCrop) androidx.compose.ui.layout.ContentScale.Crop else androidx.compose.ui.layout.ContentScale.Fit)
-                if (homePanelOverlay > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = homePanelOverlay)))
-            } else TextButton(onClick = onChooseHomePanel, modifier = Modifier.align(Alignment.Center)) { Text("＋  ESCOLHER IMAGEM") }
-        }
-        if (!hasPermission) {
-            EmptyPanel("Sua biblioteca começa aqui", "Permita o acesso às músicas para montar suas playlists.", "Conceder acesso", onRequestPermission)
-        } else {
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Artwork(Uri.parse(homePanelUri), Modifier.fillMaxSize(), "Painel principal do BatMusic",
+                    alpha = homePanelOpacity, shape = RoundedCornerShape(homePanelRadius.dp),
+                    contentScale = if (homePanelCrop) androidx.compose.ui.layout.ContentScale.Crop
+                        else androidx.compose.ui.layout.ContentScale.Fit)
+                if (homePanelOverlay > 0f) {
+                    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = homePanelOverlay.coerceAtLeast(.18f))))
+                }
+            } else {
+                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant))
+                Text("＋", Modifier.align(Alignment.TopEnd).padding(18.dp),
+                    color = MaterialTheme.colorScheme.primary, fontSize = 26.sp, fontWeight = FontWeight.Light)
+            }
+
+            Column(
+                Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(22.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf("Playlists", "Pastas", "Favoritos", "Histórico").forEach { destination ->
-                    AssistChip(
-                        onClick = { onOpenLibrary(destination) },
-                        label = { Text(destination) },
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            labelColor = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
-                }
-            }
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface).clickable { onOpenLibrary("Playlists") }.padding(20.dp)) {
-                Text("SUA MÚSICA, SUAS PLAYLISTS", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                Text("Organize e reproduza sua coleção", color = MaterialTheme.colorScheme.onBackground, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
-                Text("${songs.size} faixas locais disponíveis", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
-                TextButton(onClick = { onOpenLibrary("Playlists") }, modifier = Modifier.padding(top = 8.dp)) { Text("ABRIR PLAYLISTS  →") }
-            }
-            val recentTracks = history.take(5).mapNotNull { id -> songs.firstOrNull { it.second.id == id } }
-            if (recentTracks.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("CONTINUE OUVINDO", color = MaterialTheme.colorScheme.onBackground, fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp)
-                            Text("Suas últimas faixas", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                Text("BATMUSIC  /  LOCAL AUDIO", color = MaterialTheme.colorScheme.primary,
+                    fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp)
+                Text(
+                    currentTrack?.second?.title ?: "SUA MÚSICA. SEU RITMO.",
+                    color = if (homePanelUri != null) Color.White else MaterialTheme.colorScheme.onSurface,
+                    fontSize = 25.sp, fontWeight = FontWeight.Black, maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    currentTrack?.second?.artist ?: "Uma experiência sonora do seu jeito.",
+                    color = if (homePanelUri != null) Color.White.copy(alpha = .84f)
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
+                )
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    if (currentTrack != null) {
+                        Button(onClick = onOpenNowPlaying) {
+                            Text(if (isPlaying) "ABRIR PLAYER" else "IR PARA O PLAYER")
                         }
-                        TextButton(onClick = { onOpenLibrary("Histórico") }) { Text("VER TUDO") }
-                    }
-                    recentTracks.forEach { (index, song) ->
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surface)
-                                .clickable { onPlaySong(index) }
-                                .padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Artwork(song.artworkUri, Modifier.size(44.dp).clip(RoundedCornerShape(5.dp)), song.title)
-                            Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-                                Text(song.title, color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(song.artist, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            Text("▶", color = MaterialTheme.colorScheme.primary, fontSize = 15.sp)
+                    } else {
+                        Button(onClick = onChooseHomePanel) {
+                            Text(if (homePanelUri == null) "PERSONALIZAR HOME" else "TROCAR IMAGEM")
                         }
                     }
+                    if (currentTrack != null && isPlaying) {
+                        Text("● TOCANDO", color = if (homePanelUri != null) Color.White
+                            else MaterialTheme.colorScheme.primary,
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
+            }
+        }
+
+        if (!hasPermission) {
+            PanelCard {
+                Text("ÁUDIO LOCAL DESATIVADO", color = MaterialTheme.colorScheme.onBackground,
+                    fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("Permita o acesso para reproduzir suas músicas neste dispositivo.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                Button(onClick = onRequestPermission) { Text("PERMITIR ACESSO") }
             }
         }
     }
@@ -700,7 +714,7 @@ private fun BatAudioScreen(
                     FloatSliderRow("Ratio", ratio, ":1", 1f..12f, 21, enabled && compressorEnabled, onRatio)
                     FloatSliderRow("Attack", attack, " ms", 1f..100f, 98, enabled && compressorEnabled, onAttack)
                     FloatSliderRow("Release", release, " ms", 10f..1_000f, 197, enabled && compressorEnabled, onRelease)
-                    FloatSliderRow("Makeup", makeup, " dB", -12f..12f, 47, enabled && compressorEnabled, onMakeup)
+                    FloatSliderRow("Makeup", makeup, " dB", -12f..24f, 71, enabled && compressorEnabled, onMakeup)
                 }
             }
             item {
@@ -776,7 +790,7 @@ private fun FloatSliderRow(label: String, value: Float, suffix: String, range: C
 
 @Composable
 private fun BoostPanel(boost: Int, enabled: Boolean, onBoost: (Int) -> Unit) {
-    val targetProgress = (boost - 100) / 100f
+    val targetProgress = (boost - 100) / 200f
     val progress = if (LocalBatAnimations.current) animateFloatAsState(targetProgress, tween((320 / LocalBatAnimationSpeed.current).roundToInt()), label = "batBoost").value else targetProgress
     val gaugeTrack = MaterialTheme.colorScheme.surfaceVariant
     val gaugeGradient = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary, MaterialTheme.colorScheme.primary)
@@ -794,16 +808,16 @@ private fun BoostPanel(boost: Int, enabled: Boolean, onBoost: (Int) -> Unit) {
                         style = Stroke(10.dp.toPx(), cap = StrokeCap.Round))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("+${"%.2f".format(20.0 * kotlin.math.log10(boost / 100.0))}", color = MaterialTheme.colorScheme.onBackground, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                    Text("+${"%.2f".format((boost - 100) / 100.0 * 6.0206)}", color = MaterialTheme.colorScheme.onBackground, fontSize = 25.sp, fontWeight = FontWeight.Black)
                     Text("dB", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, letterSpacing = 1.sp)
                 }
             }
         }
-        Slider(value = boost.toFloat(), onValueChange = { onBoost(it.roundToInt()) }, valueRange = 100f..200f,
+        Slider(value = boost.toFloat(), onValueChange = { onBoost(it.roundToInt()) }, valueRange = 100f..300f,
             enabled = enabled, colors = batSliderColors())
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("100% • 0,00 dB", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
-            Text("200% • +6,02 dB", color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("100 • 0,00 dB", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+            Text("300 • +12,04 dB", color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

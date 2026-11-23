@@ -59,6 +59,26 @@ class BatGainStagingTest {
     }
 
     @Test
+    fun maximumControlsAreIncludedInTheExpandedHeadroomBudget() {
+        val plan = BatGainStaging.plan(
+            BatAudioSettings(
+                enabled = true,
+                preGainDb = 24f,
+                equalizerEnabled = true,
+                bandGainsDb = List(10) { 12f },
+                bassBoost = 100,
+                batBoost = 300,
+                compressorEnabled = true,
+                compressorMakeupDb = 24f
+            )
+        )
+        assertEquals(96.0412f, plan.estimatedPositiveStackDb, 0.01f)
+        assertTrue(plan.headroomDb.isFinite())
+        assertTrue(plan.headroomDb > 0f)
+        assertTrue(plan.inputGainDb.isFinite())
+    }
+
+    @Test
     fun nonFiniteAndOutOfRangeControlsCannotPoisonBudget() {
         val plan = BatGainStaging.plan(
             BatAudioSettings(

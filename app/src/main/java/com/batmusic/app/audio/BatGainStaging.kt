@@ -31,15 +31,15 @@ internal object BatGainStaging {
         } else 0f
         val bassDb = if (settings.enabled) settings.bassBoost.coerceIn(0, 100) * 0.12f else 0f
         val boostMakeupDb = if (settings.enabled) {
-            (settings.batBoost.coerceIn(100, 200) - 100) / 100f * 6.0206f
+            (settings.batBoost.coerceIn(100, 300) - 100) / 100f * 6.0206f
         } else 0f
         val compressorMakeupDb = if (settings.enabled && settings.compressorEnabled) {
-            settings.compressorMakeupDb.takeIf { it.isFinite() }?.coerceIn(-12f, 12f)?.coerceAtLeast(0f) ?: 0f
+            settings.compressorMakeupDb.takeIf { it.isFinite() }?.coerceIn(-12f, 24f)?.coerceAtLeast(0f) ?: 0f
         } else 0f
 
         val stack = (preGainDb + maxEqDb + bassDb + boostMakeupDb + compressorMakeupDb)
-            .coerceAtMost(60f)
-        val boostAmount = (settings.batBoost.coerceIn(100, 200) - 100) / 100f
+            .coerceAtMost(100f)
+        val boostAmount = (settings.batBoost.coerceIn(100, 300) - 100) / 100f
         val headroom = max(0f, stack - 7f) * (0.35f + boostAmount * 0.25f)
         return BatGainStagingPlan(
             estimatedPositiveStackDb = stack,

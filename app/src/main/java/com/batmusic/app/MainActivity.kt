@@ -879,6 +879,33 @@ class MainActivity : ComponentActivity() {
                 bassBoostEnabled = false; bassBoostStrength = 0
                 batAudioEnabled = true; batBoost = 100
             }
+            "Funk BR" -> {
+                // Punchy kick and controlled sub-bass, with room for vocals.
+                equalizerEnabled = true
+                equalizerGains = listOf(20, 25, 18, 5, -5, -5, 5, 12, 10, 4)
+                bassBoostEnabled = false
+                bassBoostStrength = 0
+                batAudioEnabled = true
+                batBoost = 100
+            }
+            "Funk Melody" -> {
+                // More vocal presence and a tighter low end for melodic funk.
+                equalizerEnabled = true
+                equalizerGains = listOf(12, 18, 12, 0, -4, 4, 12, 15, 10, 3)
+                bassBoostEnabled = false
+                bassBoostStrength = 0
+                batAudioEnabled = true
+                batBoost = 100
+            }
+            "Funk Mandelão" -> {
+                // Firm low punch and brighter percussion without extreme bass lift.
+                equalizerEnabled = true
+                equalizerGains = listOf(18, 22, 12, -2, -8, -3, 8, 15, 13, 5)
+                bassBoostEnabled = false
+                bassBoostStrength = 0
+                batAudioEnabled = true
+                batBoost = 100
+            }
             "BATLOUD" -> {
                 equalizerEnabled = true
                 equalizerGains = listOf(10, 8, 4, 0, 0, 5, 10, 8, 4, 0)
@@ -1094,8 +1121,8 @@ class MainActivity : ComponentActivity() {
         compressorRatio = prefs.getFloat("compressor_ratio", 3f).coerceIn(1f, 12f)
         compressorAttack = prefs.getFloat("compressor_attack", 6f).coerceIn(1f, 100f)
         compressorRelease = prefs.getFloat("compressor_release", 120f).coerceIn(10f, 1_000f)
-        compressorMakeup = prefs.getFloat("compressor_makeup", 0f).coerceIn(-12f, 12f)
-        batBoost = prefs.getInt("bat_boost", 100).let { if (it < 100) 100 + it else it }.coerceIn(100, 200)
+        compressorMakeup = prefs.getFloat("compressor_makeup", 0f).coerceIn(-12f, 24f)
+        batBoost = prefs.getInt("bat_boost", 100).let { if (it < 100) 100 + it else it }.coerceIn(100, 300)
         batAudioEnabled = prefs.getBoolean("bat_audio_enabled", equalizerEnabled || bassBoostEnabled || preampDb != 0f)
         audioPreset = when (prefs.getString("audio_preset", "Original / Flat")) {
             "Flat" -> "Original / Flat"

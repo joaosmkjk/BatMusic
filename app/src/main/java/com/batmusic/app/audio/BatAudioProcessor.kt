@@ -323,13 +323,13 @@ class BatAudioProcessor : BaseAudioProcessor() {
             releaseCoefficient = exp(-1f / (sampleRate * releaseMs / 1000f))
             appliedSettings = config
         }
-        val amount = ((config.batBoost.coerceIn(100, 200) - 100) / 100f)
+        val amount = ((config.batBoost.coerceIn(100, 300) - 100) / 100f)
         // Budget every positive stage before the output limiter, including the
         // BATBOOST and compressor makeup stages that are applied later in this loop.
         val inputGain = 10f.pow(gainStagingPlan.inputGainDb / 20f)
         inputGainRamp.setTarget(inputGain, (sampleRate * GAIN_RAMP_MS / 1_000f).toInt().coerceAtLeast(1))
         val extraMakeupDb = if (config.compressorEnabled) {
-            config.compressorMakeupDb.takeIf { it.isFinite() }?.coerceIn(-12f, 12f) ?: 0f
+            config.compressorMakeupDb.takeIf { it.isFinite() }?.coerceIn(-12f, 24f) ?: 0f
         } else 0f
         val makeupGain = 10f.pow((amount * 6.0206f + extraMakeupDb) / 20f)
         val thresholdDb = config.compressorThresholdDb.takeIf { it.isFinite() }?.coerceIn(-36f, 0f) ?: -12f
