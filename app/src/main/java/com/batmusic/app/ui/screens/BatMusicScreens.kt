@@ -429,7 +429,7 @@ private fun HomeScreen(
                     contentScale = if (homePanelCrop) androidx.compose.ui.layout.ContentScale.Crop
                         else androidx.compose.ui.layout.ContentScale.Fit)
                 if (homePanelOverlay > 0f) {
-                    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = homePanelOverlay)))
+                    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = homePanelOverlay.coerceAtLeast(.18f))))
                 }
             } else {
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant))
@@ -816,8 +816,8 @@ private fun BoostPanel(boost: Int, enabled: Boolean, onBoost: (Int) -> Unit) {
         Slider(value = boost.toFloat(), onValueChange = { onBoost(it.roundToInt()) }, valueRange = 100f..300f,
             enabled = enabled, colors = batSliderColors())
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("100% • 0,00 dB", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
-            Text("300% • +12,04 dB", color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("100 • 0,00 dB", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+            Text("300 • +12,04 dB", color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
