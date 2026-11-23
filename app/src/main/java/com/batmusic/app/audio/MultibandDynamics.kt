@@ -31,8 +31,8 @@ internal class MultibandDynamics(
     @Volatile var releaseMs: Float = 160f
     @Volatile var makeupDb: Float = 0f
 
-    private val lowCoefficient = (1.0 - exp(-2.0 * Math.PI * lowCrossoverHz / sampleRate)).toFloat()
-    private val highCoefficient = (1.0 - exp(-2.0 * Math.PI * highCrossoverHz / sampleRate)).toFloat()
+    private val lowCoefficient = (1.0 - exp(-2.0 * Math.PI * safeLowCrossoverHz / sampleRate)).toFloat()
+    private val highCoefficient = (1.0 - exp(-2.0 * Math.PI * safeHighCrossoverHz / sampleRate)).toFloat()
     private val lowState = FloatArray(channels)
     private val midState = FloatArray(channels)
     private val envelopes = FloatArray(3)
