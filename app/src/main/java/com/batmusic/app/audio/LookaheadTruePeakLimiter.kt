@@ -158,8 +158,8 @@ internal class LookaheadTruePeakLimiter(
         while (dequeHead < dequeTail && peakDequeIndices[dequeSlot(dequeHead)] < outputIndex) dequeHead++
         val windowPeak = if (dequeHead < dequeTail) peakDequeValues[dequeSlot(dequeHead)] else 0f
         val peakFrame = if (dequeHead < dequeTail) peakDequeIndices[dequeSlot(dequeHead)] else outputIndex
-        val targetGain = if (limiterEnabledRing[outputSlot] && windowPeak > targetCeiling) targetCeiling / windowPeak else 1f
         val outputSlot = slot(outputIndex)
+        val targetGain = if (limiterEnabledRing[outputSlot] && windowPeak > targetCeiling) targetCeiling / windowPeak else 1f
         val outputRingOffset = outputSlot * channels
         lastOutputBypassed = !activeRing[outputSlot]
         outputBypassed[outputFrameOffset] = lastOutputBypassed
