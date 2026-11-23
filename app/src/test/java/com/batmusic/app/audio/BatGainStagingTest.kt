@@ -16,7 +16,7 @@ class BatGainStagingTest {
     @Test
     fun budgetIncludesBoostAndPositiveCompressorMakeup() {
         val base = BatGainStaging.plan(BatAudioSettings(enabled = true))
-        val boost = BatGainStaging.plan(BatAudioSettings(enabled = true, batBoost = 200))
+        val boost = BatGainStaging.plan(BatAudioSettings(enabled = true, preGainDb = 2f, batBoost = 200))
         val compressor = BatGainStaging.plan(
             BatAudioSettings(enabled = true, compressorEnabled = true, compressorMakeupDb = 12f)
         )
