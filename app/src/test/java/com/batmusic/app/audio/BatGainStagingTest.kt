@@ -27,6 +27,21 @@ class BatGainStagingTest {
     }
 
     @Test
+    fun budgetAccountsForOverlappingPositiveEqBands() {
+        val single = BatGainStaging.plan(
+            BatAudioSettings(enabled = true, equalizerEnabled = true,
+                bandGainsDb = listOf(6f) + List(9) { 0f })
+        )
+        val stacked = BatGainStaging.plan(
+            BatAudioSettings(enabled = true, equalizerEnabled = true,
+                bandGainsDb = List(10) { 6f })
+        )
+        assertTrue(stacked.estimatedPositiveStackDb > single.estimatedPositiveStackDb)
+        assertTrue(stacked.estimatedPositiveStackDb <= 24f)
+        assertTrue(stacked.headroomDb > single.headroomDb)
+    }
+
+    @Test
     fun disabledToneEngineDoesNotBudgetInactiveEqOrMakeup() {
         val plan = BatGainStaging.plan(
             BatAudioSettings(
