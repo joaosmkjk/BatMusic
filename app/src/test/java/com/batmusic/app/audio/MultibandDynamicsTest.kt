@@ -1,7 +1,10 @@
 package com.batmusic.app.audio
 
+import androidx.media3.common.C
+import androidx.media3.common.audio.AudioProcessor
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.nio.ByteOrder
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -89,6 +92,49 @@ class MultibandDynamicsTest {
         assertTrue(
             "Stereo-linked detection should apply nearly identical gain to both channels",
             kotlin.math.abs(leftGain - rightGain) < 0.01
+        )
+    }
+
+
+    @Test
+    fun multibandPathStillPassesThroughOutputTruePeakLimiter() {
+        val sampleRate = 48_000
+        val frames = 8_192
+        val processor = BatAudioProcessor().apply {
+            settings = BatAudioSettings(
+                enabled = true,
+                limiterEnabled = true,
+                batBoost = 300,
+                compressorEnabled = false,
+                multibandEnabled = true,
+                multibandThresholdDb = 0f,
+                multibandRatio = 1f
+            )
+            configure(AudioProcessor.AudioFormat(sampleRate, 2, C.ENCODING_PCM_FLOAT))
+            flush()
+        }
+        val input = java.nio.ByteBuffer.allocateDirect(frames * 2 * 4).order(ByteOrder.nativeOrder())
+        for (frame in 0 until frames) {
+            val sample = (0.8 * sin(2.0 * PI * 1_000.0 * frame / sampleRate)).toFloat()
+            input.putFloat(sample)
+            input.putFloat(sample)
+        }
+        input.flip()
+
+        processor.queueInput(input)
+        val live = processor.output.order(ByteOrder.nativeOrder()).asFloatBuffer()
+        val liveSamples = FloatArray(live.remaining()).also(live::get)
+        assertTrue("The multiband signal should exercise the output limiter", processor.limiterActive)
+
+        processor.queueEndOfStream()
+        val tail = processor.output.order(ByteOrder.nativeOrder()).asFloatBuffer()
+        val tailSamples = FloatArray(tail.remaining()).also(tail::get)
+        val maximumSamplePeak = (liveSamples.asSequence() + tailSamples.asSequence())
+            .maxOfOrNull { kotlin.math.abs(it) } ?: 0f
+
+        assertTrue(
+            "The final limiter must keep multiband output below its internal safety target",
+            maximumSamplePeak <= 0.85f
         )
     }
 
