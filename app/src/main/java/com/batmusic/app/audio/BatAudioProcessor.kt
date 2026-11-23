@@ -96,6 +96,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
     private var multibandWasEnabled = false
     private var configuredEncoding = C.ENCODING_INVALID
     private var appliedSettings: BatAudioSettings? = null
+    private var gainStagingPlan = BatGainStagingPlan(0f, 0f, 0f)
     private var filters = emptyArray<Pair<Int, Coefficients>>()
     private var compressorEnvelope = 0f
     private val inputGainRamp = LinearGainRamp()
@@ -315,6 +316,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
     private fun processEffects(samples: FloatArray, frameCount: Int, config: BatAudioSettings) {
         if (config != appliedSettings) {
             filters = createFilters(config)
+            gainStagingPlan = BatGainStaging.plan(config)
             val attackMs = config.compressorAttackMs.takeIf { it.isFinite() }?.coerceIn(1f, 100f) ?: 6f
             val releaseMs = config.compressorReleaseMs.takeIf { it.isFinite() }?.coerceIn(10f, 1_000f) ?: 120f
             attackCoefficient = exp(-1f / (sampleRate * attackMs / 1000f))
@@ -324,8 +326,7 @@ class BatAudioProcessor : BaseAudioProcessor() {
         val amount = ((config.batBoost.coerceIn(100, 200) - 100) / 100f)
         // Budget every positive stage before the output limiter, including the
         // BATBOOST and compressor makeup stages that are applied later in this loop.
-        val gainPlan = BatGainStaging.plan(config)
-        val inputGain = 10f.pow(gainPlan.inputGainDb / 20f)
+        val inputGain = 10f.pow(gainStagingPlan.inputGainDb / 20f)
         inputGainRamp.setTarget(inputGain, (sampleRate * GAIN_RAMP_MS / 1_000f).toInt().coerceAtLeast(1))
         val extraMakeupDb = if (config.compressorEnabled) {
             config.compressorMakeupDb.takeIf { it.isFinite() }?.coerceIn(-12f, 12f) ?: 0f
