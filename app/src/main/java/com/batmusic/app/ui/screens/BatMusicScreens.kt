@@ -714,7 +714,7 @@ private fun BatAudioScreen(
                     FloatSliderRow("Ratio", ratio, ":1", 1f..12f, 21, enabled && compressorEnabled, onRatio)
                     FloatSliderRow("Attack", attack, " ms", 1f..100f, 98, enabled && compressorEnabled, onAttack)
                     FloatSliderRow("Release", release, " ms", 10f..1_000f, 197, enabled && compressorEnabled, onRelease)
-                    FloatSliderRow("Makeup", makeup, " dB", -12f..12f, 47, enabled && compressorEnabled, onMakeup)
+                    FloatSliderRow("Makeup", makeup, " dB", -12f..24f, 71, enabled && compressorEnabled, onMakeup)
                 }
             }
             item {
@@ -790,7 +790,7 @@ private fun FloatSliderRow(label: String, value: Float, suffix: String, range: C
 
 @Composable
 private fun BoostPanel(boost: Int, enabled: Boolean, onBoost: (Int) -> Unit) {
-    val targetProgress = (boost - 100) / 100f
+    val targetProgress = (boost - 100) / 200f
     val progress = if (LocalBatAnimations.current) animateFloatAsState(targetProgress, tween((320 / LocalBatAnimationSpeed.current).roundToInt()), label = "batBoost").value else targetProgress
     val gaugeTrack = MaterialTheme.colorScheme.surfaceVariant
     val gaugeGradient = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary, MaterialTheme.colorScheme.primary)
@@ -808,16 +808,16 @@ private fun BoostPanel(boost: Int, enabled: Boolean, onBoost: (Int) -> Unit) {
                         style = Stroke(10.dp.toPx(), cap = StrokeCap.Round))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("+${"%.2f".format(20.0 * kotlin.math.log10(boost / 100.0))}", color = MaterialTheme.colorScheme.onBackground, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                    Text("+${"%.2f".format((boost - 100) / 100.0 * 6.0206)}", color = MaterialTheme.colorScheme.onBackground, fontSize = 25.sp, fontWeight = FontWeight.Black)
                     Text("dB", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, letterSpacing = 1.sp)
                 }
             }
         }
-        Slider(value = boost.toFloat(), onValueChange = { onBoost(it.roundToInt()) }, valueRange = 100f..200f,
+        Slider(value = boost.toFloat(), onValueChange = { onBoost(it.roundToInt()) }, valueRange = 100f..300f,
             enabled = enabled, colors = batSliderColors())
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("100% • 0,00 dB", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
-            Text("200% • +6,02 dB", color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("300% • +12,04 dB", color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
