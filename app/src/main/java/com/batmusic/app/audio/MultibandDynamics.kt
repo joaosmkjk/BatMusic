@@ -22,8 +22,13 @@ internal class MultibandDynamics(
         require(sampleRate >= 8_000)
         require(channels in 1..8)
         require(lowCrossoverHz > 20f && highCrossoverHz > lowCrossoverHz)
-        require(highCrossoverHz < sampleRate * 0.45f)
     }
+
+    private val safeLowCrossoverHz = lowCrossoverHz.coerceIn(20f, sampleRate * 0.20f)
+    private val safeHighCrossoverHz = highCrossoverHz.coerceIn(
+        safeLowCrossoverHz * 1.1f,
+        sampleRate * 0.40f
+    )
 
     @Volatile var thresholdDb: Float = -18f
     @Volatile var ratio: Float = 2f
