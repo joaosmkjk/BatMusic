@@ -281,7 +281,9 @@ class BatAudioProcessor : BaseAudioProcessor() {
         for (frame in 0 until frameCount) {
             val sampleOffset = frame * channels
             if (limiter.processFrame(
-                    samples, sampleOffset, rawSampleBits, config.limiterEnabled,
+                    samples, sampleOffset, rawSampleBits,
+                    processingActive = config.enabled || postGainDb != 0f || config.limiterEnabled,
+                    limiterEnabled = config.limiterEnabled,
                     outputSamples, outputRawBits, writtenFrames * channels, outputBypassed, writtenFrames
                 )) {
                 val outputOffset = writtenFrames * channels
