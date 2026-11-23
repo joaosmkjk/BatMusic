@@ -19,11 +19,15 @@ internal object BatGainStaging {
         if (!settings.enabled) return BatGainStagingPlan(0f, 0f, 0f)
         val preGainDb = settings.preGainDb.takeIf { it.isFinite() }?.coerceIn(0f, 24f) ?: 0f
         val maxEqDb = if (settings.equalizerEnabled) {
+            // Peaking filters overlap. Using only the largest band can under-budget
+            // several adjacent boosts, while summing every maximum would over-attenuate.
+            // Bound the positive EQ stack at 24 dB as a conservative practical estimate.
             settings.bandGainsDb.asSequence()
                 .filter { it.isFinite() }
                 .map { it.coerceIn(-12f, 12f) }
                 .filter { it > 0f }
-                .maxOrNull() ?: 0f
+                .sum()
+                .coerceAtMost(24f)
         } else 0f
         val bassDb = if (settings.enabled) settings.bassBoost.coerceIn(0, 100) * 0.12f else 0f
         val boostMakeupDb = if (settings.enabled) {
