@@ -88,6 +88,6 @@ class AudioPresetRepository(context: Context) {
     }
 
     companion object {
-        private val BUILT_IN_PRESETS = setOf("Original / Flat", "Rock", "Metal", "Classical", "Electronic", "Vocal", "Custom", "Alternative / Indie", "Bass Focus", "BATLOUD")
+        private val BUILT_IN_PRESETS = setOf("Original / Flat", "Rock", "Metal", "Classical", "Electronic", "Vocal", "Custom", "Alternative / Indie", "Bass Focus", "BATLOUD", "Funk BR", "Funk Melody", "Funk Mandelão")
     }
 }
