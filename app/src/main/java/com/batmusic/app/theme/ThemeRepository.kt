@@ -87,6 +87,13 @@ class ThemeRepository(context: Context) {
     }.getOrDefault(emptyMap()).toMutableMap().apply {
         // Shipped palettes are available immediately and remain editable/duplicable by the user.
         putIfAbsent(BatTheme.default.name, BatTheme.default)
+        putIfAbsent("GOTHAM", BatTheme(
+            name = "GOTHAM", background = 0xFF080B12, secondaryBackground = 0xFF111722,
+            surface = 0xFF171F2B, primary = 0xFFF2C14E, secondary = 0xFF52647A,
+            accent = 0xFF202B3A, highlight = 0xFFFFD76A, text = 0xFFF4F6FA,
+            mutedText = 0xFFAAB5C4, border = 0xFF39485B, glitch = true, crt = true,
+            intensity = .18f, animationSpeed = .82f, monospace = true, cardRadiusDp = 4f
+        ))
         putIfAbsent("KRYPTON", BatTheme(
             name = "KRYPTON", background = 0xFF071426, secondaryBackground = 0xFF0B1E36,
             surface = 0xFF102A49, primary = 0xFF1769AA, secondary = 0xFFE33B36,
@@ -100,6 +107,20 @@ class ThemeRepository(context: Context) {
             accent = 0xFFDBA83D, highlight = 0xFFE9F2FF, text = 0xFFF5F7FC,
             mutedText = 0xFFA9B8CA, border = 0xFF294B70, glitch = false, crt = true,
             intensity = .10f, cardRadiusDp = 8f
+        ))
+        putIfAbsent("SPEED FORCE", BatTheme(
+            name = "SPEED FORCE", background = 0xFF170609, secondaryBackground = 0xFF260A10,
+            surface = 0xFF321018, primary = 0xFFE32636, secondary = 0xFFFFC928,
+            accent = 0xFF9F1524, highlight = 0xFFFFE17A, text = 0xFFFFF5F3,
+            mutedText = 0xFFE0B9B7, border = 0xFF7A1B2A, glitch = true, crt = false,
+            intensity = .22f, animationSpeed = 1.55f, monospace = false, textScale = 1.02f, cardRadiusDp = 6f
+        ))
+        putIfAbsent("EMERALD", BatTheme(
+            name = "EMERALD", background = 0xFF04130D, secondaryBackground = 0xFF092217,
+            surface = 0xFF0D2D1E, primary = 0xFF19A86B, secondary = 0xFF7CE0A7,
+            accent = 0xFF087A4B, highlight = 0xFFB7FFD3, text = 0xFFF0FFF6,
+            mutedText = 0xFFA7D6BC, border = 0xFF176B48, glitch = false, crt = true,
+            intensity = .12f, animationSpeed = 1.1f, monospace = true, cardRadiusDp = 9f
         ))
         putIfAbsent("OBSIDIAN", BatTheme(
             name = "OBSIDIAN", background = 0xFF08090D, secondaryBackground = 0xFF101218,
@@ -141,7 +162,7 @@ class ThemeRepository(context: Context) {
         return copy
     }
     fun delete(name: String) {
-        require(name !in setOf(BatTheme.default.name, "KRYPTON", "METROPOLIS", "OBSIDIAN", "NEON CIRCUIT")) { "Perfis integrados não podem ser excluídos" }
+        require(name !in setOf(BatTheme.default.name, "GOTHAM", "KRYPTON", "SPEED FORCE", "EMERALD", "METROPOLIS", "OBSIDIAN", "NEON CIRCUIT")) { "Perfis integrados não podem ser excluídos" }
         val all = themes().toMutableMap().apply { remove(name) }
         persist(all)
         listOf("home", "library", "player", "queue", "audio", "settings", "customizer").forEach { screen ->
