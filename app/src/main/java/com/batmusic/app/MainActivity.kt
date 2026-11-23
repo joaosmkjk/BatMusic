@@ -1121,8 +1121,8 @@ class MainActivity : ComponentActivity() {
         compressorRatio = prefs.getFloat("compressor_ratio", 3f).coerceIn(1f, 12f)
         compressorAttack = prefs.getFloat("compressor_attack", 6f).coerceIn(1f, 100f)
         compressorRelease = prefs.getFloat("compressor_release", 120f).coerceIn(10f, 1_000f)
-        compressorMakeup = prefs.getFloat("compressor_makeup", 0f).coerceIn(-12f, 12f)
-        batBoost = prefs.getInt("bat_boost", 100).let { if (it < 100) 100 + it else it }.coerceIn(100, 200)
+        compressorMakeup = prefs.getFloat("compressor_makeup", 0f).coerceIn(-12f, 24f)
+        batBoost = prefs.getInt("bat_boost", 100).let { if (it < 100) 100 + it else it }.coerceIn(100, 300)
         batAudioEnabled = prefs.getBoolean("bat_audio_enabled", equalizerEnabled || bassBoostEnabled || preampDb != 0f)
         audioPreset = when (prefs.getString("audio_preset", "Original / Flat")) {
             "Flat" -> "Original / Flat"
