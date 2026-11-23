@@ -45,8 +45,10 @@ internal class MultibandDynamics(
     init { updateTimeConstants() }
 
     fun updateTimeConstants() {
-        val attackValue = exp(-1.0 / (sampleRate * attackMs.coerceIn(1f, 100f) / 1000.0)).toFloat()
-        val releaseValue = exp(-1.0 / (sampleRate * releaseMs.coerceIn(10f, 1_000f) / 1000.0)).toFloat()
+        val safeAttackMs = attackMs.takeIf { it.isFinite() }?.coerceIn(1f, 100f) ?: 12f
+        val safeReleaseMs = releaseMs.takeIf { it.isFinite() }?.coerceIn(10f, 1_000f) ?: 160f
+        val attackValue = exp(-1.0 / (sampleRate * safeAttackMs / 1000.0)).toFloat()
+        val releaseValue = exp(-1.0 / (sampleRate * safeReleaseMs / 1000.0)).toFloat()
         for (band in 0..2) {
             attack[band] = attackValue
             release[band] = releaseValue
@@ -61,9 +63,10 @@ internal class MultibandDynamics(
 
     fun process(interleaved: FloatArray, frameCount: Int) {
         require(frameCount >= 0 && frameCount * channels <= interleaved.size)
-        val threshold = thresholdDb.coerceIn(-48f, 0f)
-        val compressionRatio = ratio.coerceIn(1f, 12f)
-        val makeup = 10f.pow(makeupDb.coerceIn(-12f, 6f) / 20f)
+        val threshold = thresholdDb.takeIf { it.isFinite() }?.coerceIn(-48f, 0f) ?: -18f
+        val compressionRatio = ratio.takeIf { it.isFinite() }?.coerceIn(1f, 12f) ?: 2f
+        val safeMakeupDb = makeupDb.takeIf { it.isFinite() }?.coerceIn(-12f, 6f) ?: 0f
+        val makeup = 10f.pow(safeMakeupDb / 20f)
 
         for (frame in 0 until frameCount) {
             val offset = frame * channels
