@@ -237,7 +237,11 @@ object BatAudioBaselineHarness {
                 val inputRms = rms(input, start)
                 val outputRms = rms(output, start)
                 val measuredDb = 20.0 * log10(outputRms / inputRms)
-                val referenceDb = eqGains.indices.sumOf { band ->
+                // Include the intentional BATLOUD headroom attenuation in the expected
+                // response. Without it, the harness mistakes a broadband safety gain
+                // reduction for an equalizer frequency-response error.
+                val gainStagingDb = BatGainStaging.plan(settings).inputGainDb.toDouble()
+                val referenceDb = gainStagingDb + eqGains.indices.sumOf { band ->
                     biquadMagnitudeDb(frequency.toDouble(), bandHz[band].toDouble(), eqGains[band].toDouble(), sampleRate.toDouble(), 1.0)
                 }
                 val error = abs(measuredDb - referenceDb)
