@@ -24,6 +24,16 @@ class MultibandDynamicsTest {
     }
 
     @Test
+    fun lowSampleRateUsesValidCrossoverFrequencies() {
+        val dynamics = MultibandDynamics(8_000, 1)
+        val pcm = FloatArray(8_000) { index ->
+            (0.2 * sin(2.0 * PI * 1_000.0 * index / 8_000)).toFloat()
+        }
+        dynamics.process(pcm, pcm.size)
+        assertTrue(pcm.all { it.isFinite() })
+    }
+
+    @Test
     fun extremeFiniteControlsRemainBoundedAndFinite() {
         val dynamics = MultibandDynamics(48_000, 2).apply {
             thresholdDb = -10_000f
