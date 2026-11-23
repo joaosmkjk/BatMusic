@@ -83,7 +83,8 @@ internal class LookaheadTruePeakLimiter(
 
     /** Called by the settings publisher, not from queueInput. */
     fun setReleaseMs(releaseMs: Float) {
-        releaseCoefficient = exp(-1f / (sampleRate * releaseMs.coerceIn(10f, 1_000f) / 1_000f))
+        val safeReleaseMs = releaseMs.takeIf { it.isFinite() }?.coerceIn(10f, 1_000f) ?: 120f
+        releaseCoefficient = exp(-1f / (sampleRate * safeReleaseMs / 1_000f))
     }
 
     fun outputFramesAfterInput(inputFrameCount: Int): Int =
