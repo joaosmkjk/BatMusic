@@ -879,6 +879,33 @@ class MainActivity : ComponentActivity() {
                 bassBoostEnabled = false; bassBoostStrength = 0
                 batAudioEnabled = true; batBoost = 100
             }
+            "Funk BR" -> {
+                // Punchy kick and controlled sub-bass, with room for vocals.
+                equalizerEnabled = true
+                equalizerGains = listOf(20, 25, 18, 5, -5, -5, 5, 12, 10, 4)
+                bassBoostEnabled = false
+                bassBoostStrength = 0
+                batAudioEnabled = true
+                batBoost = 100
+            }
+            "Funk Melody" -> {
+                // More vocal presence and a tighter low end for melodic funk.
+                equalizerEnabled = true
+                equalizerGains = listOf(12, 18, 12, 0, -4, 4, 12, 15, 10, 3)
+                bassBoostEnabled = false
+                bassBoostStrength = 0
+                batAudioEnabled = true
+                batBoost = 100
+            }
+            "Funk Mandelão" -> {
+                // Firm low punch and brighter percussion without extreme bass lift.
+                equalizerEnabled = true
+                equalizerGains = listOf(18, 22, 12, -2, -8, -3, 8, 15, 13, 5)
+                bassBoostEnabled = false
+                bassBoostStrength = 0
+                batAudioEnabled = true
+                batBoost = 100
+            }
             "BATLOUD" -> {
                 equalizerEnabled = true
                 equalizerGains = listOf(10, 8, 4, 0, 0, 5, 10, 8, 4, 0)
