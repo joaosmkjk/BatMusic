@@ -260,8 +260,10 @@ class BatAudioProcessor : BaseAudioProcessor() {
 
         // Apply only bounded, analysis-derived post gain before the safety limiter.
         // This remains independent of tone processing so Original A/B can be level matched.
-        val postGainDb = ((if (config.normalizationEnabled) config.normalizationGainDb else 0f) +
-            config.abMatchGainDb).coerceIn(-12f, 6f)
+        val normalizationDb = config.normalizationGainDb.takeIf { it.isFinite() } ?: 0f
+        val abMatchDb = config.abMatchGainDb.takeIf { it.isFinite() } ?: 0f
+        val postGainDb = ((if (config.normalizationEnabled) normalizationDb else 0f) +
+            abMatchDb).coerceIn(-12f, 6f)
         if (postGainDb != 0f) {
             val postGain = 10f.pow(postGainDb / 20f)
             for (index in 0 until frameCount * channels) samples[index] *= postGain
@@ -311,8 +313,10 @@ class BatAudioProcessor : BaseAudioProcessor() {
     private fun processEffects(samples: FloatArray, frameCount: Int, config: BatAudioSettings) {
         if (config != appliedSettings) {
             filters = createFilters(config)
-            attackCoefficient = exp(-1f / (sampleRate * config.compressorAttackMs.coerceIn(1f, 100f) / 1000f))
-            releaseCoefficient = exp(-1f / (sampleRate * config.compressorReleaseMs.coerceIn(10f, 1_000f) / 1000f))
+            val attackMs = config.compressorAttackMs.takeIf { it.isFinite() }?.coerceIn(1f, 100f) ?: 6f
+            val releaseMs = config.compressorReleaseMs.takeIf { it.isFinite() }?.coerceIn(10f, 1_000f) ?: 120f
+            attackCoefficient = exp(-1f / (sampleRate * attackMs / 1000f))
+            releaseCoefficient = exp(-1f / (sampleRate * releaseMs / 1000f))
             appliedSettings = config
         }
         val amount = ((config.batBoost.coerceIn(100, 200) - 100) / 100f)
@@ -321,10 +325,13 @@ class BatAudioProcessor : BaseAudioProcessor() {
         val gainPlan = BatGainStaging.plan(config)
         val inputGain = 10f.pow(gainPlan.inputGainDb / 20f)
         inputGainRamp.setTarget(inputGain, (sampleRate * GAIN_RAMP_MS / 1_000f).toInt().coerceAtLeast(1))
-        val extraMakeupDb = if (config.compressorEnabled) config.compressorMakeupDb.coerceIn(-12f, 12f) else 0f
+        val extraMakeupDb = if (config.compressorEnabled) {
+            config.compressorMakeupDb.takeIf { it.isFinite() }?.coerceIn(-12f, 12f) ?: 0f
+        } else 0f
         val makeupGain = 10f.pow((amount * 6.0206f + extraMakeupDb) / 20f)
-        val threshold = 10f.pow(config.compressorThresholdDb.coerceIn(-36f, 0f) / 20f)
-        val ratio = config.compressorRatio.coerceIn(1f, 12f)
+        val thresholdDb = config.compressorThresholdDb.takeIf { it.isFinite() }?.coerceIn(-36f, 0f) ?: -12f
+        val threshold = 10f.pow(thresholdDb / 20f)
+        val ratio = config.compressorRatio.takeIf { it.isFinite() }?.coerceIn(1f, 12f) ?: 3f
         var maximumReductionDb = 0f
 
         for (frame in 0 until frameCount) {
@@ -449,7 +456,8 @@ class BatAudioProcessor : BaseAudioProcessor() {
         if (bass > 0.01f) add(0 to lowShelf(95f, bass))
         if (config.equalizerEnabled) {
             for (band in BAND_HZ.indices) {
-                val gain = config.bandGainsDb.getOrElse(band) { 0f }.coerceIn(-12f, 12f)
+                val gain = config.bandGainsDb.getOrElse(band) { 0f }
+                    .takeIf { it.isFinite() }?.coerceIn(-12f, 12f) ?: 0f
                 if (abs(gain) > 0.01f) add((band + 1) to peaking(BAND_HZ[band], gain))
             }
         }
