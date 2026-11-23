@@ -39,7 +39,7 @@ internal object BatGainStaging {
 
         val stack = (preGainDb + maxEqDb + bassDb + boostMakeupDb + compressorMakeupDb)
             .coerceAtMost(100f)
-        val boostAmount = (settings.batBoost.coerceIn(100, 200) - 100) / 100f
+        val boostAmount = (settings.batBoost.coerceIn(100, 300) - 100) / 100f
         val headroom = max(0f, stack - 7f) * (0.35f + boostAmount * 0.25f)
         return BatGainStagingPlan(
             estimatedPositiveStackDb = stack,
