@@ -60,6 +60,7 @@ class BatBoostStage1ReferenceMeasurementsTest {
             Signal("crest_bursts", FloatArray(frames) { i -> if (i % 2048 < 256) (.65 * sin(2.0 * PI * 4_000 * i / sampleRate)).toFloat() else (.025 * sin(2.0 * PI * 440 * i / sampleRate)).toFloat() })
         )
         println("STAGE1_PRESET_SIGNAL,name,signal,input_rms_db,output_rms_db,measured_gain_db,sample_peak,true_peak_dbtp,limiter_max_block_gr_db,compressor_max_block_gr_db")
+        val reportRows = mutableListOf<String>()
         for (preset in presets) for (signal in signals) {
             val result = runProcessor(preset.settings, sampleRate, signal.samples)
             val inputRms = rms(signal.samples)
@@ -67,10 +68,13 @@ class BatBoostStage1ReferenceMeasurementsTest {
             val gainDb = db(outputRms / inputRms)
             val samplePeak = result.samples.maxOf { abs(it.toDouble()) }
             val tpDbtp = db(independentTruePeak4x(result.samples))
-            println("STAGE1_PRESET_SIGNAL,${preset.name},${signal.name},${db(inputRms)},${db(outputRms)},${gainDb},${samplePeak},${tpDbtp},${result.limiterGrMax},${result.compressorGrMax}")
+            val row = "STAGE1_PRESET_SIGNAL,${preset.name},${signal.name},${db(inputRms)},${db(outputRms)},${gainDb},${samplePeak},${tpDbtp},${result.limiterGrMax},${result.compressorGrMax}"
+            println(row)
+            reportRows += row
             assertTrue("Non-finite sample in ${preset.name}/${signal.name}", result.samples.all { it.isFinite() })
             assertTrue("Invalid true-peak measurement", tpDbtp.isFinite())
         }
+        writeStage1Csv("preset-signal-matrix.csv", reportRows)
     }
 
     @Test
@@ -78,15 +82,21 @@ class BatBoostStage1ReferenceMeasurementsTest {
         val rates = intArrayOf(44_100, 48_000, 96_000)
         val phases = doubleArrayOf(0.0, PI / 8, PI / 4, 3 * PI / 8, PI / 2, 5 * PI / 8, 3 * PI / 4, 7 * PI / 8)
         println("STAGE1_LIMITER_TP,sample_rate,signal,phase_rad,input_sample_peak,output_sample_peak,reference_true_peak_dbtp,block_gr_db")
+        val reportRows = mutableListOf<String>()
         for (rate in rates) for (phase in phases) {
             val frames = 8_192
             val input = FloatArray(frames) { i -> sin(2.0 * PI * .25 * i + phase).toFloat() }
             val output = runProcessor(BatAudioSettings(enabled = true, batBoost = 200, compressorEnabled = false), rate, input)
             val tpDbtp = db(independentTruePeak4x(output.samples))
-            println("STAGE1_LIMITER_TP,${rate},fs4_sine,${phase},${output.samples.maxOf { abs(it.toDouble()) }},${output.samples.maxOf { abs(it.toDouble()) }},${tpDbtp},${output.limiterGrMax}")
+            val inputSamplePeak = input.maxOf { abs(it.toDouble()) }
+            val outputSamplePeak = output.samples.maxOf { abs(it.toDouble()) }
+            val row = "STAGE1_LIMITER_TP,${rate},fs4_sine,${phase},${inputSamplePeak},${outputSamplePeak},${tpDbtp},${output.limiterGrMax}"
+            println(row)
+            reportRows += row
             assertTrue("Non-finite limiter output at $rate Hz phase $phase", output.samples.all { it.isFinite() })
             assertTrue("Non-finite independent TP at $rate Hz phase $phase", tpDbtp.isFinite())
         }
+        writeStage1Csv("limiter-phase-samplerate-sweep.csv", reportRows)
     }
 
     @Test
@@ -106,14 +116,24 @@ class BatBoostStage1ReferenceMeasurementsTest {
                 compressorMakeupDb = 4f)
         )
         println("STAGE1_GAIN_STACK,scenario,nominal_control_sum_db,measured_rms_gain_db,prelim_limiter_gr_db,compressor_gr_db")
+        val reportRows = mutableListOf<String>()
         for ((name, settings) in cases) {
             val output = runProcessor(settings, rate, input)
             val nominal = (settings.preGainDb + settings.bandGainsDb.filter { it > 0f }.sum() +
                 settings.bassBoost * .12f + (settings.batBoost.coerceIn(100, 200) - 100) / 100f * 6.0206f +
                 if (settings.compressorEnabled) settings.compressorMakeupDb else 0f)
-            println("STAGE1_GAIN_STACK,${name},${nominal},${db(rms(output.samples) / rms(input))},${output.limiterGrMax},${output.compressorGrMax}")
+            val row = "STAGE1_GAIN_STACK,${name},${nominal},${db(rms(output.samples) / rms(input))},${output.limiterGrMax},${output.compressorGrMax}"
+            println(row)
+            reportRows += row
             assertTrue("Non-finite accumulated gain result for $name", output.samples.all { it.isFinite() })
         }
+        writeStage1Csv("gain-stack-scenarios.csv", reportRows)
+    }
+
+    private fun writeStage1Csv(fileName: String, rows: List<String>) {
+        val reportDir = java.io.File(System.getProperty("user.dir"), "build/reports/stage1")
+        check(reportDir.mkdirs() || reportDir.isDirectory) { "Cannot create Stage 1 report directory: $reportDir" }
+        java.io.File(reportDir, fileName).writeText(rows.joinToString(separator = "\\n", postfix = "\\n"))
     }
 
     private data class ProcessResult(val samples: FloatArray, val limiterGrMax: Float, val compressorGrMax: Float)
