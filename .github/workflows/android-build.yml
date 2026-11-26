@@ -21,6 +21,14 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
       - name: Run unit tests and build debug APK
         run: ./gradlew testDebugUnitTest assembleDebug
+      - name: Upload Stage 1 measurement CSVs
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BATBOOST-Stage1-measurements
+          path: app/build/reports/stage1/*.csv
+          if-no-files-found: error
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
