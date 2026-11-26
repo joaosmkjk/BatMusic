@@ -74,7 +74,7 @@ class BatBoostStage1ReferenceMeasurementsTest {
             assertTrue("Non-finite sample in ${preset.name}/${signal.name}", result.samples.all { it.isFinite() })
             assertTrue("Invalid true-peak measurement", tpDbtp.isFinite())
         }
-        writeStage1Csv("preset-signal-matrix.csv", reportRows)
+        writeStage1Csv("preset-signal-matrix.csv", "STAGE1_PRESET_SIGNAL,name,signal,input_rms_db,output_rms_db,measured_gain_db,sample_peak,true_peak_dbtp,limiter_max_block_gr_db,compressor_max_block_gr_db", reportRows)
     }
 
     @Test
@@ -96,7 +96,7 @@ class BatBoostStage1ReferenceMeasurementsTest {
             assertTrue("Non-finite limiter output at $rate Hz phase $phase", output.samples.all { it.isFinite() })
             assertTrue("Non-finite independent TP at $rate Hz phase $phase", tpDbtp.isFinite())
         }
-        writeStage1Csv("limiter-phase-samplerate-sweep.csv", reportRows)
+        writeStage1Csv("limiter-phase-samplerate-sweep.csv", "STAGE1_LIMITER_TP,sample_rate,signal,phase_rad,input_sample_peak,output_sample_peak,reference_true_peak_dbtp,block_gr_db", reportRows)
     }
 
     @Test
@@ -127,13 +127,13 @@ class BatBoostStage1ReferenceMeasurementsTest {
             reportRows += row
             assertTrue("Non-finite accumulated gain result for $name", output.samples.all { it.isFinite() })
         }
-        writeStage1Csv("gain-stack-scenarios.csv", reportRows)
+        writeStage1Csv("gain-stack-scenarios.csv", "STAGE1_GAIN_STACK,scenario,nominal_control_sum_db,measured_rms_gain_db,prelim_limiter_gr_db,compressor_gr_db", reportRows)
     }
 
-    private fun writeStage1Csv(fileName: String, rows: List<String>) {
+    private fun writeStage1Csv(fileName: String, header: String, rows: List<String>) {
         val reportDir = java.io.File(System.getProperty("user.dir"), "build/reports/stage1")
         check(reportDir.mkdirs() || reportDir.isDirectory) { "Cannot create Stage 1 report directory: $reportDir" }
-        java.io.File(reportDir, fileName).writeText(rows.joinToString(separator = "\\n", postfix = "\\n"))
+        java.io.File(reportDir, fileName).writeText(header + "\n" + rows.joinToString(separator = "\n", postfix = "\n"))
     }
 
     private data class ProcessResult(val samples: FloatArray, val limiterGrMax: Float, val compressorGrMax: Float)
