@@ -78,4 +78,32 @@ class OfflineTruePeakAndAbTest {
         assertTrue(plan!!.appliedGainDb <= LoudnessNormalizer.MAX_POSITIVE_GAIN_DB)
         assertTrue(plan.predictedTruePeakDbtp <= LoudnessNormalizer.TRUE_PEAK_CEILING_DBTP)
     }
+    @Test
+    fun itu48TapMeterApproachesKnownBandlimitedSinePeak() {
+        val rate = 48_000
+        val amplitude = 0.91
+        val frequency = 0.473
+        val phase = 0.29
+        val pcm = FloatArray(48_000) { index ->
+            (amplitude * sin(2.0 * PI * frequency * index + phase)).toFloat()
+        }
+        val samplePeak = pcm.maxOf { kotlin.math.abs(it) }
+        val measuredDbtp = OversampledTruePeakMeter(1, rate).apply { process(pcm) }.finishDbtp()
+        val measured = 10.0.pow(measuredDbtp / 20.0)
+
+        assertTrue("true peak must not under-read the sample peak", measured + 0.001 >= samplePeak)
+        assertEquals("48-tap interpolation should recover the sine's continuous peak",
+            amplitude, measured, 0.015)
+    }
+
+    @Test
+    fun itu48TapMeterPreservesDcAndFlushesTheFinalSamples() {
+        val pcm = FloatArray(512) { 0.75f }
+        val meter = OversampledTruePeakMeter(1, 48_000)
+        meter.process(pcm.copyOfRange(0, 251), 251)
+        meter.process(pcm.copyOfRange(251, pcm.size), pcm.size - 251)
+        val measuredDbtp = meter.finishDbtp()
+        assertEquals(20.0 * kotlin.math.log10(0.75), measuredDbtp.toDouble(), 0.015)
+    }
+
 }
