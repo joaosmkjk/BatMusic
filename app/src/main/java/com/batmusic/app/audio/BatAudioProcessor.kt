@@ -316,7 +316,8 @@ class BatAudioProcessor : BaseAudioProcessor() {
     private fun processEffects(samples: FloatArray, frameCount: Int, config: BatAudioSettings) {
         if (config != appliedSettings) {
             filters = createFilters(config)
-            gainStagingPlan = BatGainStaging.plan(config)
+            val measuredFilterPeakDb = peakFilterResponseDb(filters)
+            gainStagingPlan = BatGainStaging.plan(config, measuredFilterPeakDb)
             val attackMs = config.compressorAttackMs.takeIf { it.isFinite() }?.coerceIn(1f, 100f) ?: 6f
             val releaseMs = config.compressorReleaseMs.takeIf { it.isFinite() }?.coerceIn(10f, 1_000f) ?: 120f
             attackCoefficient = exp(-1f / (sampleRate * attackMs / 1000f))
@@ -452,6 +453,65 @@ class BatAudioProcessor : BaseAudioProcessor() {
         val size = minOf(destination.size, visualizerRing.size)
         val start = visualizerWritePosition
         for (i in 0 until size) destination[i] = visualizerRing[(start + i) % visualizerRing.size]
+    }
+
+    /**
+     * Finds the maximum gain of the actual cascaded biquads (EQ + bass shelf).
+     * Runs only when controls change, never in the PCM sample loop.
+     * Log-frequency sweep covers the audible band and uses the same coefficients
+     * that the DSP applies, so overlapping filters are measured as a cascade.
+     */
+    private fun peakFilterResponseDb(activeFilters: Array<Pair<Int, Coefficients>>): Float {
+        if (activeFilters.isEmpty() || sampleRate <= 0) return 0f
+        val lowHz = 20.0
+        val highHz = (sampleRate * 0.45).coerceAtLeast(lowHz)
+        val logRange = kotlin.math.ln(highHz / lowHz)
+        var maximumDb = 0.0
+        val points = 2049
+        for (point in 0 until points) {
+            val frequency = lowHz * exp(logRange * point / (points - 1).toDouble())
+            val omega = 2.0 * PI * frequency / sampleRate
+            val c1 = cos(omega)
+            val s1 = sin(omega)
+            val c2 = cos(2.0 * omega)
+            val s2 = sin(2.0 * omega)
+            var cascadeDb = 0.0
+            for ((_, coeff) in activeFilters) {
+                val numeratorReal = coeff.b0 + coeff.b1 * c1 + coeff.b2 * c2
+                val numeratorImag = -coeff.b1 * s1 - coeff.b2 * s2
+                val denominatorReal = 1.0 + coeff.a1 * c1 + coeff.a2 * c2
+                val denominatorImag = -coeff.a1 * s1 - coeff.a2 * s2
+                val numeratorMagnitude = kotlin.math.sqrt(
+                    numeratorReal * numeratorReal + numeratorImag * numeratorImag
+                )
+                val denominatorMagnitude = kotlin.math.sqrt(
+                    denominatorReal * denominatorReal + denominatorImag * denominatorImag
+                ).coerceAtLeast(1e-12)
+                val magnitude = (numeratorMagnitude / denominatorMagnitude).coerceAtLeast(1e-12)
+                cascadeDb += 20.0 * log10(magnitude)
+            }
+            if (cascadeDb.isFinite() && cascadeDb > maximumDb) maximumDb = cascadeDb
+        }
+        // Include configured peak centers in case a narrow peak falls between sweep points.
+        for ((index, _) in activeFilters) {
+            val centerHz = if (index == 0) 95.0 else BAND_HZ.getOrElse(index - 1) { 16_000f }.toDouble()
+            val omega = 2.0 * PI * centerHz.coerceIn(lowHz, highHz) / sampleRate
+            val c1 = cos(omega); val s1 = sin(omega)
+            val c2 = cos(2.0 * omega); val s2 = sin(2.0 * omega)
+            var cascadeDb = 0.0
+            for ((_, coeff) in activeFilters) {
+                val nr = coeff.b0 + coeff.b1 * c1 + coeff.b2 * c2
+                val ni = -coeff.b1 * s1 - coeff.b2 * s2
+                val dr = 1.0 + coeff.a1 * c1 + coeff.a2 * c2
+                val di = -coeff.a1 * s1 - coeff.a2 * s2
+                cascadeDb += 20.0 * log10(
+                    (kotlin.math.sqrt(nr * nr + ni * ni) /
+                        kotlin.math.sqrt(dr * dr + di * di).coerceAtLeast(1e-12)).coerceAtLeast(1e-12)
+                )
+            }
+            if (cascadeDb.isFinite() && cascadeDb > maximumDb) maximumDb = cascadeDb
+        }
+        return maximumDb.coerceIn(0.0, 60.0).toFloat()
     }
 
     private fun createFilters(config: BatAudioSettings): Array<Pair<Int, Coefficients>> = buildList {
