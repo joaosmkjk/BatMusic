@@ -192,6 +192,9 @@ class OversampledTruePeakMeter(
     // ITU-R BS.1770-5 Annex 2 gives a 48-tap, four-phase interpolating FIR.
     // Each polyphase branch has 12 coefficients and a six-frame centered delay.
     private val ring = FloatArray(FILTER_TAPS * channels)
+    private val firstFrame = FloatArray(channels)
+    private val lastFrame = FloatArray(channels)
+    private var hasInput = false
     private var frames = 0L
     private var peak = 0f
     private var finished = false
@@ -204,7 +207,8 @@ class OversampledTruePeakMeter(
 
     fun finishDbtp(): Float {
         if (!finished) {
-            // Flush the FIR look-ahead with zeros; never omit the track tail.
+            // Extend the last sample through the FIR look-ahead. Zero-padding
+            // would invent a discontinuity at the file boundary and over-read DC.
             repeat(FUTURE_FRAMES) { pushFrame(null, 0, false) }
             finished = true
         }
@@ -214,11 +218,26 @@ class OversampledTruePeakMeter(
 
     private fun pushFrame(input: FloatArray?, offset: Int, real: Boolean) {
         val frameIndex = frames
+        if (real && !hasInput) {
+            for (channel in 0 until channels) {
+                val first = input!![offset + channel].let { if (it.isFinite()) it else 0f }
+                firstFrame[channel] = first
+                lastFrame[channel] = first
+            }
+            // Replicate the first frame into FIR history to avoid a synthetic
+            // zero-to-signal step before the first real PCM frame.
+            for (history in 0 until FILTER_TAPS) {
+                val historyOffset = history * channels
+                for (channel in 0 until channels) ring[historyOffset + channel] = firstFrame[channel]
+            }
+            hasInput = true
+        }
         val slot = (frameIndex % FILTER_TAPS).toInt()
         val ringOffset = slot * channels
         for (channel in 0 until channels) {
-            val sample = if (real) input!![offset + channel].let { if (it.isFinite()) it else 0f } else 0f
+            val sample = if (real) input!![offset + channel].let { if (it.isFinite()) it else 0f } else lastFrame[channel]
             ring[ringOffset + channel] = sample
+            if (real) lastFrame[channel] = sample
             if (real) peak = max(peak, abs(sample))
         }
         frames++
@@ -232,7 +251,7 @@ class OversampledTruePeakMeter(
                 val coefficients = PHASE_COEFFICIENTS[phase]
                 for (tap in 0 until POLYPHASE_TAPS) {
                     val sourceIndex = targetFrame + FIRST_TAP + tap
-                    val sample = if (sourceIndex < 0L) 0f
+                    val sample = if (sourceIndex < 0L) firstFrame[channel]
                         else ring[(sourceIndex % FILTER_TAPS).toInt() * channels + channel]
                     value += sample.toDouble() * coefficients[tap]
                 }
