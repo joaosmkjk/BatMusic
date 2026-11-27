@@ -180,10 +180,21 @@ class AndroidTrackLoudnessAnalyzer(
  * as the playback limiter. This is a conservative engineering estimate, not
  * a claim of formal ITU-R BS.1770 compliance (which specifies a longer filter).
  */
-class OversampledTruePeakMeter(private val channels: Int) {
-    init { require(channels in 1..8) }
+class OversampledTruePeakMeter(
+    private val channels: Int,
+    private val sampleRate: Int = 48_000
+) {
+    init {
+        require(channels in 1..8)
+        require(sampleRate >= 8_000)
+    }
 
+    // ITU-R BS.1770-5 Annex 2 gives a 48-tap, four-phase interpolating FIR.
+    // Each polyphase branch has 12 coefficients and a six-frame centered delay.
     private val ring = FloatArray(FILTER_TAPS * channels)
+    private val firstFrame = FloatArray(channels)
+    private val lastFrame = FloatArray(channels)
+    private var hasInput = false
     private var frames = 0L
     private var peak = 0f
     private var finished = false
@@ -191,14 +202,13 @@ class OversampledTruePeakMeter(private val channels: Int) {
     fun process(interleaved: FloatArray, frameCount: Int = interleaved.size / channels) {
         check(!finished) { "Peak analysis is already finished" }
         require(frameCount >= 0 && frameCount * channels <= interleaved.size)
-        for (frame in 0 until frameCount) {
-            pushFrame(interleaved, frame * channels, true)
-        }
+        for (frame in 0 until frameCount) pushFrame(interleaved, frame * channels, true)
     }
 
     fun finishDbtp(): Float {
         if (!finished) {
-            // Zero-pad the FIR's future context so the final real samples are measured.
+            // Extend the last sample through the FIR look-ahead. Zero-padding
+            // would invent a discontinuity at the file boundary and over-read DC.
             repeat(FUTURE_FRAMES) { pushFrame(null, 0, false) }
             finished = true
         }
@@ -208,53 +218,80 @@ class OversampledTruePeakMeter(private val channels: Int) {
 
     private fun pushFrame(input: FloatArray?, offset: Int, real: Boolean) {
         val frameIndex = frames
+        if (real && !hasInput) {
+            for (channel in 0 until channels) {
+                val first = input!![offset + channel].let { if (it.isFinite()) it else 0f }
+                firstFrame[channel] = first
+                lastFrame[channel] = first
+            }
+            // Replicate the first frame into FIR history to avoid a synthetic
+            // zero-to-signal step before the first real PCM frame.
+            for (history in 0 until FILTER_TAPS) {
+                val historyOffset = history * channels
+                for (channel in 0 until channels) ring[historyOffset + channel] = firstFrame[channel]
+            }
+            hasInput = true
+        }
         val slot = (frameIndex % FILTER_TAPS).toInt()
         val ringOffset = slot * channels
         for (channel in 0 until channels) {
-            val sample = if (real) input!![offset + channel].let { if (it.isFinite()) it else 0f } else 0f
+            val sample = if (real) input!![offset + channel].let { if (it.isFinite()) it else 0f } else lastFrame[channel]
             ring[ringOffset + channel] = sample
+            if (real) lastFrame[channel] = sample
             if (real) peak = max(peak, abs(sample))
         }
         frames++
         if (frameIndex < FUTURE_FRAMES) return
 
-        val segmentIndex = frameIndex - FUTURE_FRAMES
+        // The centered FIR is evaluated once its six future samples are present.
+        val targetFrame = frameIndex - FUTURE_FRAMES
         for (channel in 0 until channels) {
             for (phase in 0 until OVERSAMPLE_FACTOR) {
-                var value = 0f
-                val phaseOffset = phase * FILTER_TAPS
-                for (tap in 0 until FILTER_TAPS) {
-                    val sourceIndex = segmentIndex + FIRST_TAP + tap
-                    val sample = if (sourceIndex < 0L) 0f
+                var value = 0.0
+                val coefficients = PHASE_COEFFICIENTS[phase]
+                for (tap in 0 until POLYPHASE_TAPS) {
+                    val sourceIndex = targetFrame + FIRST_TAP + tap
+                    val sample = if (sourceIndex < 0L) firstFrame[channel]
                         else ring[(sourceIndex % FILTER_TAPS).toInt() * channels + channel]
-                    value += sample * COEFFICIENTS[phaseOffset + tap]
+                    value += sample.toDouble() * coefficients[tap]
                 }
-                peak = max(peak, abs(value))
+                peak = max(peak, abs(value.toFloat()))
             }
         }
     }
 
     companion object {
         private const val OVERSAMPLE_FACTOR = 4
-        private const val FILTER_TAPS = 16
-        private const val FIRST_TAP = -7
-        private const val FUTURE_FRAMES = 8
+        private const val POLYPHASE_TAPS = 12
+        private const val FILTER_TAPS = 48
+        private const val FIRST_TAP = -5
+        private const val FUTURE_FRAMES = 6
 
-        // Four 1/4-sample phases from the playback limiter's normalized FIR.
-        private val COEFFICIENTS = floatArrayOf(
-            0f, 0f, 0f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f,
-            -0.0002498180f, 0.0017681750f, -0.0059955350f, 0.0154912161f,
-            -0.0345300007f, 0.0721794778f, -0.1630195067f, 0.8967047937f,
-            0.2895787107f, -0.1057302544f, 0.0500258218f, -0.0234394137f,
-            0.0098715498f, -0.0034129936f, 0.0007830557f, -0.0000252786f,
-            -0.0001492781f, 0.0017078792f, -0.0064579991f, 0.0175787207f,
-            -0.0403416098f, 0.0849361269f, -0.1838220161f, 0.6265481763f,
-            0.6265481763f, -0.1838220161f, 0.0849361269f, -0.0403416098f,
-            0.0175787207f, -0.0064579991f, 0.0017078792f, -0.0001492781f,
-            -0.0000252786f, 0.0007830557f, -0.0034129936f, 0.0098715498f,
-            -0.0234394137f, 0.0500258218f, -0.1057302544f, 0.2895787107f,
-            0.8967047937f, -0.1630195067f, 0.0721794778f, -0.0345300007f,
-            0.0154912161f, -0.0059955350f, 0.0017681750f, -0.0002498180f
-        )
+        // Coefficients from ITU-R BS.1770-5 Annex 2 (48-tap interpolating FIR).
+        // Rows are the four phases as printed in the recommendation. Each phase
+        // is DC-normalized to avoid a small phase-dependent gain offset caused
+        // by the finite-precision coefficient table.
+        private val PHASE_COEFFICIENTS: Array<DoubleArray> = run {
+            val rows = arrayOf(
+                doubleArrayOf( 0.0017089843750, -0.0291748046875, -0.0189208984375, -0.0083007812500),
+                doubleArrayOf( 0.0109863281250,  0.0292968750000,  0.0330810546875,  0.0148925781250),
+                doubleArrayOf(-0.0196533203125, -0.0517578125000, -0.0582275390625, -0.0266113281250),
+                doubleArrayOf( 0.0332031250000,  0.0891113281250,  0.1015625000000,  0.0476074218750),
+                doubleArrayOf(-0.0594482421875, -0.1665039062500, -0.2003173828125, -0.1022949218750),
+                doubleArrayOf( 0.1373291015625,  0.4650878906250,  0.7797851562500,  0.9721679687500),
+                doubleArrayOf( 0.9721679687500,  0.7797851562500,  0.4650878906250,  0.1373291015625),
+                doubleArrayOf(-0.1022949218750, -0.2003173828125, -0.1665039062500, -0.0594482421875),
+                doubleArrayOf( 0.0476074218750,  0.1015625000000,  0.0891113281250,  0.0332031250000),
+                doubleArrayOf(-0.0266113281250, -0.0582275390625, -0.0517578125000, -0.0196533203125),
+                doubleArrayOf( 0.0148925781250,  0.0330810546875,  0.0292968750000,  0.0109863281250),
+                doubleArrayOf(-0.0083007812500, -0.0189208984375, -0.0291748046875,  0.0017089843750)
+            )
+            Array(OVERSAMPLE_FACTOR) { phase ->
+                DoubleArray(POLYPHASE_TAPS) { tap -> rows[tap][phase] }.also { coefficients ->
+                    val sum = coefficients.sum()
+                    if (sum != 0.0) for (tap in coefficients.indices) coefficients[tap] /= sum
+                }
+            }
+        }
     }
 }
